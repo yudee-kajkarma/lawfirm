@@ -1,7 +1,8 @@
-import type { Schema } from 'mongoose';
+import { Types, type Schema } from 'mongoose';
 
 import { getContext } from '../auth/requestContext';
 import type { AuditAction } from '../constants/enums';
+import { AuditLog } from '../models/AuditLog';
 
 type AuditLogOptions = {
   collectionName: string;
@@ -89,15 +90,27 @@ export function auditLogPlugin(schema: Schema, options: AuditLogOptions): void {
     if (action === 'update' && changes.length === 0) return;
 
     const ctx = getContext();
+
+    // Diagnostic — a 'user' source mutation with no actor means the route
+    // bypassed `withAuth`. We've seen this happen during dev HMR around
+    // server actions. Loud warn so it's caught immediately.
+    if (!ctx) {
+      console.warn(
+        `[auditLogPlugin] save fired with no request context (collection=${collectionName}, id=${String(doc._id)}). The route likely bypassed withAuth.`,
+      );
+    }
+
+    const actorId =
+      ctx?.user?._id && Types.ObjectId.isValid(ctx.user._id)
+        ? new Types.ObjectId(ctx.user._id)
+        : null;
+
     try {
-      const AuditLog = (
-        doc.constructor as unknown as { db: { model: (name: string) => { create: (data: object) => Promise<unknown> } } }
-      ).db.model('AuditLog');
       await AuditLog.create({
         collectionName,
-        documentId: doc._id,
+        documentId: doc._id as Types.ObjectId,
         action,
-        actorId: ctx?.user?._id ?? null,
+        actorId,
         actorEmail: ctx?.user?.email ?? null,
         source: ctx?.source ?? 'system',
         ip: ctx?.ip ?? null,
@@ -106,8 +119,8 @@ export function auditLogPlugin(schema: Schema, options: AuditLogOptions): void {
         changes,
       });
     } catch (err) {
-      // Audit logging must never break the main mutation. Surface to console
-      // and continue; operators can correlate via the error logs.
+      // Audit logging must never break the main mutation. Surface loudly so
+      // it's not silently swallowed in production logs.
       console.error('[auditLogPlugin] failed to write entry', {
         collectionName,
         documentId: String(doc._id),

@@ -1,7 +1,9 @@
 import type { Metadata } from 'next';
 import { Geist } from 'next/font/google';
 
+import { QueryProvider } from '@/components/providers/QueryProvider';
 import { SessionProvider } from '@/components/providers/SessionProvider';
+import { Toaster } from '@/components/ui/sonner';
 import { cn } from '@/lib/utils';
 
 import './globals.css';
@@ -21,7 +23,10 @@ export default function RootLayout({
   return (
     <html lang="en" className={cn('font-sans', geist.variable)}>
       <body className="antialiased">
-        <SessionProvider>{children}</SessionProvider>
+        <SessionProvider>
+          <QueryProvider>{children}</QueryProvider>
+        </SessionProvider>
+        <Toaster richColors position="top-right" />
       </body>
     </html>
   );

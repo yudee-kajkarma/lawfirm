@@ -19,8 +19,17 @@ export function auditFieldsPlugin(schema: Schema): void {
       ctx?.user?._id && Types.ObjectId.isValid(ctx.user._id)
         ? new Types.ObjectId(ctx.user._id)
         : null;
-    if (!userId) return;
 
+    // Diagnostic — a new doc on a 'user' source with no actor is almost
+    // always a `withAuth` bypass. Warn so it surfaces during dev.
+    if (this.isNew && !userId && ctx?.source !== 'system' && ctx?.source !== 'webhook') {
+      const modelName = (this.constructor as { modelName?: string }).modelName ?? 'unknown';
+      console.warn(
+        `[auditFieldsPlugin] new ${modelName} saved with no actor in context. The route likely bypassed withAuth.`,
+      );
+    }
+
+    if (!userId) return;
     if (this.isNew && !this.get('createdBy')) {
       this.set('createdBy', userId);
     }

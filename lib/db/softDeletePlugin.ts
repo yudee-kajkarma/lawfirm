@@ -14,6 +14,12 @@ declare module 'mongoose' {
   interface QueryOptions {
     withDeleted?: boolean;
   }
+  interface Document {
+    /** Set `deletedAt = now` and save. Triggers audit-log via the save hook. */
+    softDelete(): Promise<this>;
+    /** Clear `deletedAt` and save. Triggers audit-log via the save hook. */
+    restore(): Promise<this>;
+  }
 }
 
 export function softDeletePlugin(schema: Schema): void {
