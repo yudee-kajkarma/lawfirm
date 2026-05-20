@@ -1,0 +1,232 @@
+Phased build plan
+
+  Stack-version targets (latest as of May 2026):
+  - Next.js 15.x (App Router, React 19), TypeScript 5.x strict
+  - Tailwind CSS v4 (CSS-first config)
+  - shadcn/ui for primitives + Motion (motion package, the successor to Framer Motion) for animations
+  - Mongoose 8.x, MongoDB Atlas
+  - Auth.js v5 (next-auth@5)
+  - TanStack Query v5, Zod 3.x, React Hook Form 7.x
+  - @dnd-kit (latest), @aws-sdk/client-s3 v3
+  - lucide-react (latest)
+
+  Each phase ends with a test gate you exercise before we move on.
+
+  ---
+  Phase 0 — Foundation (split into testable sub-phases)
+
+  0a. Project skeleton & tooling
+  - npx create-next-app@latest (TS, Tailwind v4, App Router, ESLint)
+  - Add Prettier, path aliases (@/*), strict TS config
+  - Scaffold the directory layout from CLAUDE.md §4
+  - Install: shadcn, motion, lucide-react
+  - Init shadcn (npx shadcn@latest init) with base theme
+  - Test gate: npm run dev → hello page. npm run typecheck && npm run lint clean.
+
+  0b. Mongo + plugins + request context
+  - lib/db/connect.ts (global-cached Mongoose connection)
+  - softDeletePlugin, auditFieldsPlugin, auditLogPlugin
+  - lib/auth/requestContext.ts (AsyncLocalStorage)
+  - lib/utils/apiResponse.ts, errors.ts, parseListQuery.ts
+  - lib/constants/enums.ts
+  - Test gate: Tiny script scripts/test-plugins.ts creates a doc via Mongoose inside runWithContext, edits it, soft-deletes, and we verify the auditLogs
+  collection in Atlas Compass has the three expected entries with field diffs.
+
+  0c. Foundation models + seed
+  - Models: User, BusinessUnit, AuditLog, Settings
+  - scripts/seed.ts — creates 3 BUs (immigration/law/wealth), 1 admin user (from SEED_ADMIN_* env), 1 standard user with access to law only
+  - npm run seed & npm run seed:reset
+  - Test gate: Run seed, open Atlas → see 2 users, 3 BUs, settings singleton.
+
+  0d. Auth.js v5 + middleware + withAuth + scopedQuery
+  - auth.config.ts, auth.ts (Auth.js v5 pattern with Credentials provider, JWT sessions)
+  - middleware.ts (edge — redirects unauthed to /login, blocks non-admin from /settings/* via JWT claims)
+  - lib/auth/withAuth.ts, lib/auth/scopedQuery.ts
+  - Throwaway protected route /api/me returning the hydrated user
+  - Test gate: curl /api/me without session → 401. With session cookie → 200 with user. Admin sees isAdmin: true; standard user sees businessUnits: ['law'].
+
+  0e. App shell — layout, login, BU selector
+  - shadcn primitives: Button, Card, Input, Label, Dialog, Dropdown, Avatar, Badge, Skeleton, Sonner (toasts)
+  - App layout: Sidebar + Header + main area
+  - BU selector in header (React context + localStorage)
+  - Login page (/login) wired to Auth.js
+  - useCurrentUser hook
+  - Motion: subtle page-transition + sidebar item hover animations to set the "premium" tone early
+  - Test gate: Log in as admin → sidebar shows all items including Settings, BU selector shows "All + 3 BUs". Log in as standard user → no Settings, BU
+  selector shows only "Law". Refresh keeps you logged in. Logout works.
+
+  ---
+  Phase 1 — Contacts (smallest "spine" entity, validates the full stack pattern)
+
+  - Contact model + Zod validators
+  - Routes: GET/POST /api/contacts, GET/PATCH/DELETE /api/contacts/:id
+  - hooks/useContacts.ts (list, get, create, update, delete with optimistic updates)
+  - /contacts list page (table, search, BU filter, pagination, empty state, skeleton)
+  - /contacts/[id] detail page (overview, edit drawer)
+  - "New Contact" dialog with react-hook-form + shared Zod schema
+  - Test gate:
+    - Admin creates contacts in Law and Immigration; sees both
+    - Standard user (Law only) sees only Law contacts; tries to GET an Immigration contact by ID → 404 (not 403)
+    - Soft-delete a contact → disappears from list; check Atlas, deletedAt is set
+    - Edit a field → audit log entry with before/after diff exists
+
+  This phase is the canonical pattern for everything that follows. Once you sign off on it, the next 8 entities are mostly copy-shape-and-adapt.
+
+  ---
+  Phase 2 — Leads
+
+  - Lead model + validators (stages, sources)
+  - Full REST routes
+  - /leads list + filters by stage, source, assignee
+  - /leads/[id] detail page with activity timeline placeholder (real activities arrive in Phase 10)
+  - Lead → Contact link (when present)
+  - Test gate: Same CRUD checks + BU isolation. Filter by stage works. Search by name/email/phone works.
+
+  ---
+  Phase 3 — Cases + Lead conversion (transactions)
+
+  - Case, CaseChecklist, PipelineStage, Counter models
+  - generateCaseNumber() with atomic $inc
+  - Cases REST routes
+  - The conversion endpoint — POST /api/leads/:id/convert using session.withTransaction (CLAUDE.md §9 reference impl)
+  - /cases list, /cases/[id] detail with checklist sub-component
+  - "Convert Lead" button on lead detail → modal → on success redirects to new case
+  - Test gate:
+    - Convert a lead → 1 contact + 1 case created, lead.stage = converted, all in one transaction
+    - Simulate failure mid-transaction (throw in case create) → no partial writes in Atlas
+    - Concurrent conversion test — fire two converts in parallel → case numbers don't collide
+    - Audit log shows 3 entries from the conversion
+
+  ---
+  Phase 4 — Dashboard with real metrics
+
+  - Aggregation queries (using withSoftDeleteMatch() helper)
+  - /dashboard cards: open leads by stage, active cases, conversion rate, tasks due (stubbed until Phase 6)
+  - Motion animations on count-up cards
+  - Test gate: Numbers match what you see in lists. Switch BU → numbers update.
+
+  ---
+  Phase 5 — Pipeline Kanban
+
+  - /pipeline page using @dnd-kit/core + @dnd-kit/sortable
+  - Columns = PipelineStage records for the active BU
+  - Cards = leads, grouped by stage
+  - useUpdateLead with optimistic stage update
+  - Motion: card lift on drag, drop bounce
+  - Test gate: Drag lead between columns — UI updates instantly, API gets PATCH, rollback works if API fails (toggle network panel to test).
+
+  ---
+  Phase 6 — Tasks
+
+  - Task model with polymorphic relatedTo: { type, id } + compound index
+  - REST routes
+  - /tasks global list (filters: status, due date, assignee, related type)
+  - <TasksPanel> component embedded in lead/case/contact detail pages
+  - Create-task dialog
+  - Test gate: Create a task on a lead from the lead detail page → appears in tasks panel there + global tasks list. Filter by overdue works.
+
+  ---
+  Phase 7 — Documents (S3)
+
+  - Document model + polymorphic relatedTo
+  - lib/integrations/storage.ts — S3 client + signed URL helpers (presigned PUT for upload, presigned GET for download)
+  - POST /api/documents/upload-url → returns presigned PUT
+  - POST /api/documents → creates metadata after browser PUT succeeds
+  - GET /api/documents/:id/download-url → presigned GET
+  - <DocumentUploader> and <DocumentList> components
+  - /documents global page
+  - Test gate: Upload a 5MB PDF on a case → appears in case docs and global docs list. Download works. Delete soft-deletes the metadata; file stays in S3
+  (lifecycle policy cleans later — document this).
+
+  ---
+  Phase 8 — Calendar
+
+  - CalendarEvent model
+  - REST routes
+  - /calendar page — month/week/day views (use a lightweight lib like @fullcalendar/react or build with shadcn calendar + custom event layer; recommend
+  FullCalendar to avoid building grid math)
+  - Event create/edit dialog
+  - Test gate: Create event, switch views, drag-to-resize updates the API.
+
+  ---
+  Phase 9 — Smart Lists
+
+  - SmartList model
+  - lib/utils/smartListQuery.ts — filter-tree → Mongo query translator with strict whitelist of fields per entity
+  - Filter-tree builder UI (group + condition rows, AND/OR)
+  - /smart-lists page (CRUD)
+  - ?smartListId= query param applied in list endpoints
+  - Test gate: Build "Hot leads in Law assigned to me" → save → apply on Leads list and verify results match a hand-written equivalent. Confirm a malicious
+  field name in the filter is rejected.
+
+  ---
+  Phase 10 — Communications: Email (SendGrid)
+
+  - Thread, Message, Activity models
+  - lib/integrations/sendgrid.ts (interface + stub + real)
+  - lib/integrations/inbound.ts (ingestInboundMessage helper)
+  - POST /api/messages (outbound)
+  - POST /api/webhooks/sendgrid (inbound + delivery events, with ECDSA signature verification)
+  - /communications unified inbox UI (threads list + thread detail with polling at 10–15s)
+  - Compose-message dialog on contact/lead/case detail pages
+  - Test gate: With stub: send → message appears in thread, activity logged on linked lead. With live (toggle env, send to your own inbox): real email
+  arrives. Reply to it → webhook fires → message appears in thread.
+
+  ---
+  Phase 11 — Communications: SMS (Twilio) + WhatsApp
+
+  - lib/integrations/twilio.ts, lib/integrations/whatsapp.ts
+  - Twilio HMAC-SHA1 webhook verification; WhatsApp HMAC-SHA256
+  - Channel selector in compose dialog
+  - Test gate: SMS round-trip with Twilio trial number. WhatsApp deferred if Meta approval not through (parked as TODO with feature flag).
+
+  ---
+  Phase 12 — Invoices
+
+  - Invoice model + line items + numbering counter
+  - REST routes
+  - /invoices list, /invoices/[id] detail
+  - "Create from case" flow
+  - "Send invoice" → triggers SendGrid send via Phase 10 plumbing
+  - PDF generation (recommend @react-pdf/renderer for clean React-driven PDFs)
+  - Stripe explicitly deferred to Phase 2 of product roadmap
+  - Test gate: Create invoice on a case, generate PDF, send via email, verify recipient sees it with attachment.
+
+  ---
+  Phase 13 — Settings (admin module)
+
+  - /settings/users — CRUD users, toggle isAdmin, set BUs
+  - /settings/business-units — CRUD BUs
+  - /settings/integrations — keys stored encrypted via lib/utils/encryption.ts (AES-256-GCM), display masked
+  - /settings/pipeline-stages — manage stages per BU
+  - /settings/audit-log — paginated viewer (cursor pagination since this collection can grow), filter by user/collection/date
+  - AI config stub page
+  - Test gate: Admin can add user, restrict to one BU, that user logs in and sees only that BU. Add SendGrid key in settings → encrypted in Atlas (verify no
+   plaintext). Audit log viewer shows the user-create event.
+
+  ---
+  Phase 14 — Polish, AI stub, perf, deploy
+
+  - AI Assistant floating button (UI only, no backend)
+  - Performance pass: add missing indexes (run explain() on slow queries), enable Next.js image optimization where applicable
+  - Error boundaries on every route group
+  - Sentry or equivalent error reporting
+  - Loading states audit (every list page has skeleton)
+  - Accessibility audit (keyboard nav on Kanban, ARIA on modals)
+
+  - AI Assistant floating button (UI only, no backend)
+    Performance pass: add missing indexes (run explain() on slow queries), enable Next.js image optimization where applicable
+  --Error boundaries on every route group
+  C Sentryaor equivalent error reporting
+  - Loading states audit (every list page has skeleton)
+  - Accessibilitynauditt(keyboardonavton Kanban,sARIA onvmodals) phase without unwinding everything.
+  - Deploy choica point: decide Vercel vs self-host, wfitt vercel.jsonUor Dockerfile accordingly
+  - Test gate: Lighthouse > 90 on main pages, deploy to scaging, smoke test all 14 mo  les.
+
+   --
+  Cross-phase practices
+
+  - Every phase ends with a Git commit / PR — easy to revert on  phase without unwinding ever thing.
+  - Every model added → also seed it with a couple of fixtures so the UI isn't empty during dev.
+  -.npm run typecheck && npm run lint must passwbeforesdeclaringpaiphasegdone.
+  - Manual BU-isolation testtasdpart of wach phase touciing a new entity — it's theoeasiesticritical bugxtolship.
