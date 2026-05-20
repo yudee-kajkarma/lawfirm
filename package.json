@@ -12,6 +12,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test:plugins": "tsx --env-file=.env.local scripts/test-plugins.ts",
+    "test:conversion": "tsx --env-file=.env.local scripts/test-conversion.ts",
     "seed": "tsx --env-file=.env.local scripts/seed.ts",
     "seed:reset": "tsx --env-file=.env.local scripts/seed.ts --reset"
   },

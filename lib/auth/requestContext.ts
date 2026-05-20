@@ -26,7 +26,7 @@ export type RequestContext = {
  * Same pattern as the Mongoose connection cache in `lib/db/connect.ts`.
  */
 declare global {
-  // eslint-disable-next-line no-var
+   
   var __requestContextStorage__: AsyncLocalStorage<RequestContext> | undefined;
 }
 
