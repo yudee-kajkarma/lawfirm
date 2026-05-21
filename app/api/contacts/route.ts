@@ -4,7 +4,9 @@ import { scopedQuery } from '@/lib/auth/scopedQuery';
 import { withAuth } from '@/lib/auth/withAuth';
 import { connectDb } from '@/lib/db/connect';
 import { Contact, serializeContact } from '@/lib/models/Contact';
+import { applySmartList, mergeWithSmartList } from '@/lib/services/applySmartList';
 import { apiError, apiOk } from '@/lib/utils/apiResponse';
+import { AppError } from '@/lib/utils/errors';
 import { parseListQuery } from '@/lib/utils/parseListQuery';
 import { contactCreateSchema } from '@/lib/utils/validators/contact';
 
@@ -30,12 +32,29 @@ export const GET = withAuth(async (req, _ctx, { user }) => {
     filter.$or = [{ firstName: re }, { lastName: re }, { email: re }, { companyName: re }];
   }
 
+  let finalFilter = filter;
+  if (list.smartListId) {
+    try {
+      const smartFilter = await applySmartList({
+        smartListId: list.smartListId,
+        expectedEntity: 'contact',
+        user,
+      });
+      finalFilter = mergeWithSmartList(filter, smartFilter);
+    } catch (err) {
+      if (err instanceof AppError) {
+        return apiError(err.code, err.message, err.statusCode);
+      }
+      throw err;
+    }
+  }
+
   const skip = (list.page - 1) * list.limit;
   const sort: Record<string, 1 | -1> = { [list.sort.field]: list.sort.direction };
 
   const [items, total] = await Promise.all([
-    Contact.find(filter).sort(sort).skip(skip).limit(list.limit).lean(),
-    Contact.countDocuments(filter),
+    Contact.find(finalFilter).sort(sort).skip(skip).limit(list.limit).lean(),
+    Contact.countDocuments(finalFilter),
   ]);
 
   return apiOk({

@@ -2,7 +2,9 @@ import { scopedQuery } from '@/lib/auth/scopedQuery';
 import { withAuth } from '@/lib/auth/withAuth';
 import { connectDb } from '@/lib/db/connect';
 import { Lead, serializeLead } from '@/lib/models/Lead';
+import { applySmartList, mergeWithSmartList } from '@/lib/services/applySmartList';
 import { apiError, apiOk } from '@/lib/utils/apiResponse';
+import { AppError } from '@/lib/utils/errors';
 import { parseListQuery } from '@/lib/utils/parseListQuery';
 import { leadCreateSchema } from '@/lib/utils/validators/lead';
 
@@ -32,12 +34,27 @@ export const GET = withAuth(async (req, _ctx, { user }) => {
     filter.$or = [{ firstName: re }, { lastName: re }, { email: re }, { companyName: re }];
   }
 
+  // Smart list overlay — $and-merged so it composes with URL filters.
+  let finalFilter = filter;
+  const smartListId = list.smartListId;
+  if (smartListId) {
+    try {
+      const smartFilter = await applySmartList({ smartListId, expectedEntity: 'lead', user });
+      finalFilter = mergeWithSmartList(filter, smartFilter);
+    } catch (err) {
+      if (err instanceof AppError) {
+        return apiError(err.code, err.message, err.statusCode);
+      }
+      throw err;
+    }
+  }
+
   const skip = (list.page - 1) * list.limit;
   const sort: Record<string, 1 | -1> = { [list.sort.field]: list.sort.direction };
 
   const [items, total] = await Promise.all([
-    Lead.find(filter).sort(sort).skip(skip).limit(list.limit).lean(),
-    Lead.countDocuments(filter),
+    Lead.find(finalFilter).sort(sort).skip(skip).limit(list.limit).lean(),
+    Lead.countDocuments(finalFilter),
   ]);
 
   return apiOk({

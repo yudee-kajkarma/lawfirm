@@ -38,6 +38,7 @@ export type TaskListFilters = {
   priority?: TaskPriority;
   assignedTo?: string;
   businessUnit?: string;
+  smartListId?: string;
   /** Filter to tasks attached to a specific record. */
   relatedToType?: PolyRelatedType;
   relatedToId?: string;

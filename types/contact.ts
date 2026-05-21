@@ -35,5 +35,6 @@ export type ContactListFilters = {
   search?: string;
   contactType?: ContactType;
   businessUnit?: string;
+  smartListId?: string;
   sort?: string;
 };

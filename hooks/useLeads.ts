@@ -17,6 +17,7 @@ function buildQS(filters: LeadListFilters): string {
   if (filters.source) sp.set('source', filters.source);
   if (filters.assignedTo) sp.set('assignedTo', filters.assignedTo);
   if (filters.businessUnit) sp.set('businessUnit', filters.businessUnit);
+  if (filters.smartListId) sp.set('smartListId', filters.smartListId);
   if (filters.sort) sp.set('sort', filters.sort);
   return sp.toString();
 }

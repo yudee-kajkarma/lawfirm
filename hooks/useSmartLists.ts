@@ -4,52 +4,47 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { apiFetch } from '@/lib/utils/apiFetch';
 import type {
-  ContactCreateInput,
-  ContactUpdateInput,
-} from '@/lib/utils/validators/contact';
-import type { Contact, ContactListFilters, ContactListMeta } from '@/types/contact';
+  SmartListCreateInput,
+  SmartListUpdateInput,
+} from '@/lib/utils/validators/smartList';
+import type { SmartList, SmartListListFilters } from '@/types/smartList';
 
-const KEY = ['contacts'] as const;
+const KEY = ['smartLists'] as const;
 
-function buildQS(filters: ContactListFilters): string {
+function buildQS(filters: SmartListListFilters): string {
   const sp = new URLSearchParams();
-  if (filters.page) sp.set('page', String(filters.page));
-  if (filters.limit) sp.set('limit', String(filters.limit));
-  if (filters.search) sp.set('search', filters.search);
-  if (filters.contactType) sp.set('contactType', filters.contactType);
+  if (filters.entity) sp.set('entity', filters.entity);
   if (filters.businessUnit) sp.set('businessUnit', filters.businessUnit);
-  if (filters.smartListId) sp.set('smartListId', filters.smartListId);
-  if (filters.sort) sp.set('sort', filters.sort);
   return sp.toString();
 }
 
-export function useContactsList(filters: ContactListFilters) {
+export function useSmartLists(filters: SmartListListFilters = {}) {
   return useQuery({
     queryKey: [...KEY, 'list', filters],
     queryFn: async () => {
       const qs = buildQS(filters);
-      const res = await apiFetch<Contact[]>(`/api/contacts${qs ? `?${qs}` : ''}`);
-      return { items: res.data, meta: res.meta as ContactListMeta };
-    },
-  });
-}
-
-export function useContact(id: string | null) {
-  return useQuery({
-    queryKey: [...KEY, 'detail', id],
-    enabled: !!id,
-    queryFn: async () => {
-      const res = await apiFetch<Contact>(`/api/contacts/${id}`);
+      const res = await apiFetch<SmartList[]>(`/api/smart-lists${qs ? `?${qs}` : ''}`);
       return res.data;
     },
   });
 }
 
-export function useCreateContact() {
+export function useSmartList(id: string | null) {
+  return useQuery({
+    queryKey: [...KEY, 'detail', id],
+    enabled: !!id,
+    queryFn: async () => {
+      const res = await apiFetch<SmartList>(`/api/smart-lists/${id}`);
+      return res.data;
+    },
+  });
+}
+
+export function useCreateSmartList() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: ContactCreateInput) => {
-      const res = await apiFetch<Contact>('/api/contacts', {
+    mutationFn: async (input: SmartListCreateInput) => {
+      const res = await apiFetch<SmartList>('/api/smart-lists', {
         method: 'POST',
         body: JSON.stringify(input),
       });
@@ -61,11 +56,11 @@ export function useCreateContact() {
   });
 }
 
-export function useUpdateContact() {
+export function useUpdateSmartList() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (args: { id: string; patch: ContactUpdateInput }) => {
-      const res = await apiFetch<Contact>(`/api/contacts/${args.id}`, {
+    mutationFn: async (args: { id: string; patch: SmartListUpdateInput }) => {
+      const res = await apiFetch<SmartList>(`/api/smart-lists/${args.id}`, {
         method: 'PATCH',
         body: JSON.stringify(args.patch),
       });
@@ -78,11 +73,11 @@ export function useUpdateContact() {
   });
 }
 
-export function useDeleteContact() {
+export function useDeleteSmartList() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      await apiFetch<{ _id: string }>(`/api/contacts/${id}`, { method: 'DELETE' });
+      await apiFetch<{ _id: string }>(`/api/smart-lists/${id}`, { method: 'DELETE' });
       return id;
     },
     onSuccess: (id) => {

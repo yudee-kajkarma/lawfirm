@@ -31,5 +31,6 @@ export type CaseListFilters = {
   assignedTo?: string;
   clientId?: string;
   businessUnit?: string;
+  smartListId?: string;
   sort?: string;
 };

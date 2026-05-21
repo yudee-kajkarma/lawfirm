@@ -19,6 +19,7 @@ function buildQS(filters: CaseListFilters): string {
   if (filters.assignedTo) sp.set('assignedTo', filters.assignedTo);
   if (filters.clientId) sp.set('clientId', filters.clientId);
   if (filters.businessUnit) sp.set('businessUnit', filters.businessUnit);
+  if (filters.smartListId) sp.set('smartListId', filters.smartListId);
   if (filters.sort) sp.set('sort', filters.sort);
   return sp.toString();
 }

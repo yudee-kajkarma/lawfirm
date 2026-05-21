@@ -1,11 +1,12 @@
 'use client';
 
 import { Briefcase, Search } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 
 import { CaseStatusBadge } from '@/components/cases/CaseStatusBadge';
 import { EmptyState } from '@/components/shared/EmptyState';
+import { SmartListPicker } from '@/components/smart-lists/SmartListPicker';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -59,6 +60,7 @@ function formatValue(v: number | null): string {
 
 export function CasesClient() {
   const router = useRouter();
+  const sp = useSearchParams();
   const { currentBU, businessUnits } = useBusinessUnit();
 
   const [search, setSearch] = useState('');
@@ -66,6 +68,7 @@ export function CasesClient() {
   const [page, setPage] = useState(1);
 
   const debouncedSearch = useDebouncedValue(search, 300);
+  const smartListId = sp.get('smartListId') ?? undefined;
 
   const filters = useMemo(
     () => ({
@@ -74,13 +77,14 @@ export function CasesClient() {
       search: debouncedSearch || undefined,
       status: statusFilter === 'all' ? undefined : statusFilter,
       businessUnit: currentBU !== 'all' ? currentBU : undefined,
+      smartListId,
     }),
-    [page, debouncedSearch, statusFilter, currentBU],
+    [page, debouncedSearch, statusFilter, currentBU, smartListId],
   );
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, statusFilter, currentBU]);
+  }, [debouncedSearch, statusFilter, currentBU, smartListId]);
 
   const query = useCasesList(filters);
 
@@ -120,6 +124,7 @@ export function CasesClient() {
               ))}
             </SelectContent>
           </Select>
+          <SmartListPicker entity="case" />
         </div>
       </div>
 

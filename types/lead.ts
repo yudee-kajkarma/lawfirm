@@ -35,5 +35,6 @@ export type LeadListFilters = {
   source?: LeadSource;
   assignedTo?: string;
   businessUnit?: string;
+  smartListId?: string;
   sort?: string;
 };

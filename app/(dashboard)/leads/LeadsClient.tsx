@@ -1,12 +1,13 @@
 'use client';
 
 import { Plus, Search, UserPlus } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 
 import { LeadCreateDialog } from '@/components/leads/LeadCreateDialog';
 import { humanizeEnum } from '@/components/leads/LeadForm';
 import { EmptyState } from '@/components/shared/EmptyState';
+import { SmartListPicker } from '@/components/smart-lists/SmartListPicker';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -93,6 +94,7 @@ function formatValue(v: number | null): string {
 
 export function LeadsClient() {
   const router = useRouter();
+  const sp = useSearchParams();
   const { currentBU, businessUnits } = useBusinessUnit();
 
   const [search, setSearch] = useState('');
@@ -101,6 +103,7 @@ export function LeadsClient() {
   const [page, setPage] = useState(1);
 
   const debouncedSearch = useDebouncedValue(search, 300);
+  const smartListId = sp.get('smartListId') ?? undefined;
 
   const filters = useMemo(
     () => ({
@@ -110,13 +113,14 @@ export function LeadsClient() {
       stage: stageFilter === 'all' ? undefined : stageFilter,
       source: sourceFilter === 'all' ? undefined : sourceFilter,
       businessUnit: currentBU !== 'all' ? currentBU : undefined,
+      smartListId,
     }),
-    [page, debouncedSearch, stageFilter, sourceFilter, currentBU],
+    [page, debouncedSearch, stageFilter, sourceFilter, currentBU, smartListId],
   );
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, stageFilter, sourceFilter, currentBU]);
+  }, [debouncedSearch, stageFilter, sourceFilter, currentBU, smartListId]);
 
   const query = useLeadsList(filters);
 
@@ -153,6 +157,7 @@ export function LeadsClient() {
               ))}
             </SelectContent>
           </Select>
+          <SmartListPicker entity="lead" />
           <Select
             value={sourceFilter}
             onValueChange={(v) => setSourceFilter(v as typeof sourceFilter)}

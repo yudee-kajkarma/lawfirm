@@ -2,6 +2,7 @@
 
 import { CheckSquare, Plus, Search } from 'lucide-react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 
 import {
@@ -14,6 +15,7 @@ import { TaskCreateDialog } from '@/components/tasks/TaskCreateDialog';
 import { TaskDeleteAlert } from '@/components/tasks/TaskDeleteAlert';
 import { TaskEditSheet } from '@/components/tasks/TaskEditSheet';
 import { EmptyState } from '@/components/shared/EmptyState';
+import { SmartListPicker } from '@/components/smart-lists/SmartListPicker';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -71,7 +73,9 @@ const RELATED_HREF: Record<string, string> = {
 };
 
 export function TasksClient() {
+  const sp = useSearchParams();
   const { currentBU, businessUnits } = useBusinessUnit();
+  const smartListId = sp.get('smartListId') ?? undefined;
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | TaskStatus>('all');
@@ -106,13 +110,14 @@ export function TasksClient() {
       priority: priorityFilter === 'all' ? undefined : priorityFilter,
       overdue: overdueOnly || undefined,
       businessUnit: currentBU !== 'all' ? currentBU : undefined,
+      smartListId,
     }),
-    [page, debouncedSearch, statusFilter, priorityFilter, overdueOnly, currentBU],
+    [page, debouncedSearch, statusFilter, priorityFilter, overdueOnly, currentBU, smartListId],
   );
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, statusFilter, priorityFilter, overdueOnly, currentBU]);
+  }, [debouncedSearch, statusFilter, priorityFilter, overdueOnly, currentBU, smartListId]);
 
   const query = useTasksList(filters);
 
@@ -166,6 +171,7 @@ export function TasksClient() {
               ))}
             </SelectContent>
           </Select>
+          <SmartListPicker entity="task" />
           <Label className="flex items-center gap-2 text-xs font-medium">
             <input
               type="checkbox"

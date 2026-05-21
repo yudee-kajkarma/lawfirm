@@ -3,7 +3,9 @@ import { withAuth } from '@/lib/auth/withAuth';
 import { connectDb } from '@/lib/db/connect';
 import { POLY_RELATED_TYPES } from '@/lib/constants/enums';
 import { Task, serializeTask } from '@/lib/models/Task';
+import { applySmartList, mergeWithSmartList } from '@/lib/services/applySmartList';
 import { apiError, apiOk } from '@/lib/utils/apiResponse';
+import { AppError } from '@/lib/utils/errors';
 import { isValidObjectIdString } from '@/lib/utils/objectId';
 import { parseListQuery } from '@/lib/utils/parseListQuery';
 import { taskCreateSchema } from '@/lib/utils/validators/task';
@@ -51,14 +53,31 @@ export const GET = withAuth(async (req, _ctx, { user }) => {
     filter.$or = [{ title: re }, { description: re }];
   }
 
+  let finalFilter = filter;
+  if (list.smartListId) {
+    try {
+      const smartFilter = await applySmartList({
+        smartListId: list.smartListId,
+        expectedEntity: 'task',
+        user,
+      });
+      finalFilter = mergeWithSmartList(filter, smartFilter);
+    } catch (err) {
+      if (err instanceof AppError) {
+        return apiError(err.code, err.message, err.statusCode);
+      }
+      throw err;
+    }
+  }
+
   const skip = (list.page - 1) * list.limit;
   // Default sort for tasks favors near-due-then-recent rather than purely creation time.
   const sortField = list.sort.field === 'createdAt' ? 'dueDate' : list.sort.field;
   const sort: Record<string, 1 | -1> = { [sortField]: list.sort.direction };
 
   const [items, total] = await Promise.all([
-    Task.find(filter).sort(sort).skip(skip).limit(list.limit).lean(),
-    Task.countDocuments(filter),
+    Task.find(finalFilter).sort(sort).skip(skip).limit(list.limit).lean(),
+    Task.countDocuments(finalFilter),
   ]);
 
   return apiOk({

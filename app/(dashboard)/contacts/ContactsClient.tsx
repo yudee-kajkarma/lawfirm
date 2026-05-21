@@ -1,11 +1,12 @@
 'use client';
 
 import { Plus, Search, Users } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 
 import { ContactCreateDialog } from '@/components/contacts/ContactCreateDialog';
 import { EmptyState } from '@/components/shared/EmptyState';
+import { SmartListPicker } from '@/components/smart-lists/SmartListPicker';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -48,6 +49,7 @@ function formatDate(iso: string): string {
 
 export function ContactsClient() {
   const router = useRouter();
+  const sp = useSearchParams();
   const { currentBU, businessUnits } = useBusinessUnit();
 
   const [search, setSearch] = useState('');
@@ -56,6 +58,7 @@ export function ContactsClient() {
 
   // Debounce so we don't fire a query on every keystroke.
   const debouncedSearch = useDebouncedValue(search, 300);
+  const smartListId = sp.get('smartListId') ?? undefined;
 
   const filters = useMemo(
     () => ({
@@ -64,14 +67,15 @@ export function ContactsClient() {
       search: debouncedSearch || undefined,
       contactType: typeFilter === 'all' ? undefined : typeFilter,
       businessUnit: currentBU !== 'all' ? currentBU : undefined,
+      smartListId,
     }),
-    [page, debouncedSearch, typeFilter, currentBU],
+    [page, debouncedSearch, typeFilter, currentBU, smartListId],
   );
 
   // Reset to page 1 whenever filters change.
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, typeFilter, currentBU]);
+  }, [debouncedSearch, typeFilter, currentBU, smartListId]);
 
   const query = useContactsList(filters);
 
@@ -108,6 +112,7 @@ export function ContactsClient() {
               ))}
             </SelectContent>
           </Select>
+          <SmartListPicker entity="contact" />
         </div>
         <ContactCreateDialog
           trigger={

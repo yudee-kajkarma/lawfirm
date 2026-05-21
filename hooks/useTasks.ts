@@ -20,6 +20,7 @@ function buildQS(filters: TaskListFilters): string {
   if (filters.priority) sp.set('priority', filters.priority);
   if (filters.assignedTo) sp.set('assignedTo', filters.assignedTo);
   if (filters.businessUnit) sp.set('businessUnit', filters.businessUnit);
+  if (filters.smartListId) sp.set('smartListId', filters.smartListId);
   if (filters.relatedToType) sp.set('relatedToType', filters.relatedToType);
   if (filters.relatedToId) sp.set('relatedToId', filters.relatedToId);
   if (filters.overdue) sp.set('overdue', 'true');
