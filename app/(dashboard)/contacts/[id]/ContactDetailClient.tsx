@@ -16,6 +16,7 @@ import { useState } from 'react';
 
 import { ContactDeleteAlert } from '@/components/contacts/ContactDeleteAlert';
 import { ContactEditSheet } from '@/components/contacts/ContactEditSheet';
+import { DocumentsPanel } from '@/components/documents/DocumentsPanel';
 import { TasksPanel } from '@/components/tasks/TasksPanel';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -174,6 +175,8 @@ export function ContactDetailClient({ id }: { id: string }) {
       </div>
 
       <TasksPanel relatedToType="contact" relatedToId={c._id} businessUnit={c.businessUnit} />
+
+      <DocumentsPanel relatedToType="contact" relatedToId={c._id} businessUnit={c.businessUnit} />
 
       <Card>
         <CardHeader>

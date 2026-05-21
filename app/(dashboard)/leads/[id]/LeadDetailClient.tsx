@@ -21,6 +21,7 @@ import { humanizeEnum } from '@/components/leads/LeadForm';
 import { LeadConvertDialog } from '@/components/leads/LeadConvertDialog';
 import { LeadDeleteAlert } from '@/components/leads/LeadDeleteAlert';
 import { LeadEditSheet } from '@/components/leads/LeadEditSheet';
+import { DocumentsPanel } from '@/components/documents/DocumentsPanel';
 import { TasksPanel } from '@/components/tasks/TasksPanel';
 import { StageBadge } from '@/app/(dashboard)/leads/LeadsClient';
 import { Button } from '@/components/ui/button';
@@ -213,6 +214,8 @@ export function LeadDetailClient({ id }: { id: string }) {
         </div>
 
         <TasksPanel relatedToType="lead" relatedToId={l._id} businessUnit={l.businessUnit} />
+
+        <DocumentsPanel relatedToType="lead" relatedToId={l._id} businessUnit={l.businessUnit} />
 
         <Card>
           <CardHeader>
