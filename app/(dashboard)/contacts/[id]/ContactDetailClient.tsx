@@ -16,6 +16,7 @@ import { useState } from 'react';
 
 import { ContactDeleteAlert } from '@/components/contacts/ContactDeleteAlert';
 import { ContactEditSheet } from '@/components/contacts/ContactEditSheet';
+import { TasksPanel } from '@/components/tasks/TasksPanel';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -172,14 +173,15 @@ export function ContactDetailClient({ id }: { id: string }) {
         )}
       </div>
 
-      {/* Activity placeholder — real timeline arrives in Phase 10 */}
+      <TasksPanel relatedToType="contact" relatedToId={c._id} businessUnit={c.businessUnit} />
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Activity</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">
-            Communications, tasks, and timeline events appear here in Phase 10.
+            Communications and timeline events appear here in Phase 10.
           </p>
         </CardContent>
       </Card>

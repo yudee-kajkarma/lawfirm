@@ -21,6 +21,7 @@ import { humanizeEnum } from '@/components/leads/LeadForm';
 import { LeadConvertDialog } from '@/components/leads/LeadConvertDialog';
 import { LeadDeleteAlert } from '@/components/leads/LeadDeleteAlert';
 import { LeadEditSheet } from '@/components/leads/LeadEditSheet';
+import { TasksPanel } from '@/components/tasks/TasksPanel';
 import { StageBadge } from '@/app/(dashboard)/leads/LeadsClient';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -211,13 +212,15 @@ export function LeadDetailClient({ id }: { id: string }) {
           )}
         </div>
 
+        <TasksPanel relatedToType="lead" relatedToId={l._id} businessUnit={l.businessUnit} />
+
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Activity</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground">
-              Communications, tasks, and stage changes appear here in Phase 10.
+              Communications and stage changes appear here in Phase 10.
             </p>
           </CardContent>
         </Card>

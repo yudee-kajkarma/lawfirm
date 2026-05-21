@@ -21,6 +21,7 @@ import { CaseChecklistCard } from '@/components/cases/CaseChecklistCard';
 import { CaseDeleteAlert } from '@/components/cases/CaseDeleteAlert';
 import { CaseEditSheet } from '@/components/cases/CaseEditSheet';
 import { CaseStatusBadge } from '@/components/cases/CaseStatusBadge';
+import { TasksPanel } from '@/components/tasks/TasksPanel';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -199,7 +200,11 @@ export function CaseDetailClient({ id }: { id: string }) {
           <CaseChecklistCard caseId={c._id} />
         </div>
 
-        <Card>
+        <div className="lg:col-span-1">
+          <TasksPanel relatedToType="case" relatedToId={c._id} businessUnit={c.businessUnit} />
+        </div>
+
+        <Card className="lg:col-span-3">
           <CardHeader>
             <CardTitle className="text-base">Metadata</CardTitle>
           </CardHeader>
