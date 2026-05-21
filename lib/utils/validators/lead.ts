@@ -56,7 +56,15 @@ export const leadCreateSchema = z.object({
   tags: z.array(z.string().trim().max(50)).default([]),
 });
 
-export const leadUpdateSchema = leadCreateSchema.partial();
+// `.partial()` makes fields optional in the input, but Zod's `.default()`
+// still fires when a field is absent from the parsed result. For PATCH that
+// silently overwrites existing values — re-declare every defaulted field
+// as a plain `.optional()` so missing keys stay missing.
+export const leadUpdateSchema = leadCreateSchema.partial().extend({
+  source: z.enum(LEAD_SOURCES).optional(),
+  stage: z.enum(LEAD_STAGES).optional(),
+  tags: z.array(z.string().trim().max(50)).optional(),
+});
 
 export type LeadCreateInput = z.infer<typeof leadCreateSchema>;
 export type LeadUpdateInput = z.infer<typeof leadUpdateSchema>;

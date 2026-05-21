@@ -30,7 +30,13 @@ export const caseCreateSchema = z.object({
   tags: z.array(z.string().trim().max(50)).default([]),
 });
 
-export const caseUpdateSchema = caseCreateSchema.partial();
+// `.partial()` makes fields optional in the input, but Zod's `.default()`
+// still fires when a field is absent — silently overwrites existing values
+// on PATCH. Re-declare every defaulted field as a plain `.optional()`.
+export const caseUpdateSchema = caseCreateSchema.partial().extend({
+  status: z.enum(CASE_STATUSES).optional(),
+  tags: z.array(z.string().trim().max(50)).optional(),
+});
 
 export type CaseCreateInput = z.infer<typeof caseCreateSchema>;
 export type CaseUpdateInput = z.infer<typeof caseUpdateSchema>;

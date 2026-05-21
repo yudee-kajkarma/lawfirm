@@ -38,7 +38,13 @@ export const contactCreateSchema = z.object({
   notes: trimmedString(5000).nullish(),
 });
 
-export const contactUpdateSchema = contactCreateSchema.partial();
+// `.partial()` makes fields optional in the input, but Zod's `.default()`
+// still fires when a field is absent — silently overwrites existing values
+// on PATCH. Re-declare every defaulted field as a plain `.optional()`.
+export const contactUpdateSchema = contactCreateSchema.partial().extend({
+  contactType: z.enum(CONTACT_TYPES).optional(),
+  tags: z.array(z.string().trim().max(50)).optional(),
+});
 
 export type ContactCreateInput = z.infer<typeof contactCreateSchema>;
 export type ContactUpdateInput = z.infer<typeof contactUpdateSchema>;
