@@ -18,6 +18,10 @@ const PAGE_TITLES: Record<string, string> = {
   '/invoices': 'Invoices',
   '/smart-lists': 'Smart Lists',
   '/settings': 'Settings',
+  '/settings/users': 'Settings · Users',
+  '/settings/business-units': 'Settings · Business units',
+  '/settings/audit-log': 'Settings · Audit log',
+  '/settings/integrations': 'Settings · Integrations',
 };
 
 function titleFromPath(pathname: string): string {

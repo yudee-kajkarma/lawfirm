@@ -1,6 +1,7 @@
 'use client';
 
 import { motion } from 'motion/react';
+import { useFormStatus } from 'react-dom';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -78,9 +79,7 @@ export function LoginForm({ action, callbackUrl, hasError }: Props) {
                   placeholder="••••••••"
                 />
               </div>
-              <Button type="submit" className="w-full">
-                Sign in
-              </Button>
+              <SubmitButton />
             </form>
           </CardContent>
           <CardFooter className="flex justify-center border-t bg-muted/30 py-3 text-xs text-muted-foreground">
@@ -89,5 +88,17 @@ export function LoginForm({ action, callbackUrl, hasError }: Props) {
         </Card>
       </motion.div>
     </main>
+  );
+}
+
+// Server actions don't give us a `pending` flag on the form prop, so we read
+// it inside a child component via useFormStatus. Has to be a separate
+// component — the hook only returns true while a sibling form is submitting.
+function SubmitButton() {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" className="w-full" disabled={pending}>
+      {pending ? 'Signing in…' : 'Sign in'}
+    </Button>
   );
 }

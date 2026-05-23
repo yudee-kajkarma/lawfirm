@@ -120,7 +120,7 @@ export function BusinessUnitsClient() {
           }
         />
       ) : (
-        <div className="overflow-hidden rounded-lg border border-border bg-card">
+        <div className="overflow-x-auto rounded-lg border border-border bg-card">
           <Table>
             <TableHeader>
               <TableRow>
@@ -226,7 +226,7 @@ export function BusinessUnitsClient() {
 
 function TableSkeleton() {
   return (
-    <div className="overflow-hidden rounded-lg border border-border bg-card">
+    <div className="overflow-x-auto rounded-lg border border-border bg-card">
       <div className="border-b bg-muted/20 px-4 py-3">
         <Skeleton className="h-3 w-24" />
       </div>

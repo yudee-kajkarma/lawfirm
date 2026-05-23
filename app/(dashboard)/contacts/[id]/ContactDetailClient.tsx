@@ -70,6 +70,14 @@ export function ContactDetailClient({ id }: { id: string }) {
           <p className="text-sm text-destructive">
             {(query.error as Error)?.message ?? 'Contact not found.'}
           </p>
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-3"
+            onClick={() => query.refetch()}
+          >
+            Retry
+          </Button>
         </div>
       </div>
     );
@@ -115,7 +123,7 @@ export function ContactDetailClient({ id }: { id: string }) {
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" size="sm" className="gap-2" onClick={() => setEditOpen(true)}>
             <Pencil className="size-3.5" />
             Edit

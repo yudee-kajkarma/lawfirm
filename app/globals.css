@@ -116,6 +116,115 @@
     --sidebar-ring: oklch(0.556 0 0);
 }
 
+/* ---------------------------------------------------------------------------
+ * Color themes (tweakcn-style)
+ *
+ * Each theme overrides just the variables that give it its identity — primary,
+ * ring, sidebar-primary, sidebar-ring, and chart-1. The rest of the palette
+ * (background, card, muted, border, etc.) stays neutral so foreground contrast
+ * is consistent across themes.
+ *
+ * Scoping uses the `data-theme` attribute set on <html> by ColorThemeProvider.
+ * `default` requires no rule (falls through to :root). For light mode we set
+ * `[data-theme="x"]`; for dark mode we set `.dark[data-theme="x"]` so it
+ * composes with next-themes' dark class.
+ * ------------------------------------------------------------------------- */
+
+[data-theme="rose"] {
+    --primary: oklch(0.625 0.235 19);
+    --primary-foreground: oklch(0.985 0 0);
+    --ring: oklch(0.625 0.235 19);
+    --sidebar-primary: oklch(0.625 0.235 19);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-ring: oklch(0.625 0.235 19);
+    --chart-1: oklch(0.625 0.235 19);
+}
+.dark[data-theme="rose"] {
+    --primary: oklch(0.700 0.220 19);
+    --primary-foreground: oklch(0.985 0 0);
+    --ring: oklch(0.700 0.220 19);
+    --sidebar-primary: oklch(0.700 0.220 19);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-ring: oklch(0.700 0.220 19);
+    --chart-1: oklch(0.700 0.220 19);
+}
+
+[data-theme="orange"] {
+    --primary: oklch(0.680 0.200 50);
+    --primary-foreground: oklch(0.985 0 0);
+    --ring: oklch(0.680 0.200 50);
+    --sidebar-primary: oklch(0.680 0.200 50);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-ring: oklch(0.680 0.200 50);
+    --chart-1: oklch(0.680 0.200 50);
+}
+.dark[data-theme="orange"] {
+    --primary: oklch(0.740 0.190 60);
+    --primary-foreground: oklch(0.205 0 0);
+    --ring: oklch(0.740 0.190 60);
+    --sidebar-primary: oklch(0.740 0.190 60);
+    --sidebar-primary-foreground: oklch(0.205 0 0);
+    --sidebar-ring: oklch(0.740 0.190 60);
+    --chart-1: oklch(0.740 0.190 60);
+}
+
+[data-theme="violet"] {
+    --primary: oklch(0.540 0.230 295);
+    --primary-foreground: oklch(0.985 0 0);
+    --ring: oklch(0.540 0.230 295);
+    --sidebar-primary: oklch(0.540 0.230 295);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-ring: oklch(0.540 0.230 295);
+    --chart-1: oklch(0.540 0.230 295);
+}
+.dark[data-theme="violet"] {
+    --primary: oklch(0.680 0.190 295);
+    --primary-foreground: oklch(0.985 0 0);
+    --ring: oklch(0.680 0.190 295);
+    --sidebar-primary: oklch(0.680 0.190 295);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-ring: oklch(0.680 0.190 295);
+    --chart-1: oklch(0.680 0.190 295);
+}
+
+[data-theme="blue"] {
+    --primary: oklch(0.540 0.230 262);
+    --primary-foreground: oklch(0.985 0 0);
+    --ring: oklch(0.540 0.230 262);
+    --sidebar-primary: oklch(0.540 0.230 262);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-ring: oklch(0.540 0.230 262);
+    --chart-1: oklch(0.540 0.230 262);
+}
+.dark[data-theme="blue"] {
+    --primary: oklch(0.680 0.190 262);
+    --primary-foreground: oklch(0.985 0 0);
+    --ring: oklch(0.680 0.190 262);
+    --sidebar-primary: oklch(0.680 0.190 262);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-ring: oklch(0.680 0.190 262);
+    --chart-1: oklch(0.680 0.190 262);
+}
+
+[data-theme="green"] {
+    --primary: oklch(0.540 0.150 148);
+    --primary-foreground: oklch(0.985 0 0);
+    --ring: oklch(0.540 0.150 148);
+    --sidebar-primary: oklch(0.540 0.150 148);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-ring: oklch(0.540 0.150 148);
+    --chart-1: oklch(0.540 0.150 148);
+}
+.dark[data-theme="green"] {
+    --primary: oklch(0.700 0.150 148);
+    --primary-foreground: oklch(0.205 0 0);
+    --ring: oklch(0.700 0.150 148);
+    --sidebar-primary: oklch(0.700 0.150 148);
+    --sidebar-primary-foreground: oklch(0.205 0 0);
+    --sidebar-ring: oklch(0.700 0.150 148);
+    --chart-1: oklch(0.700 0.150 148);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

@@ -60,6 +60,14 @@ export function InvoiceDetailClient({ id }: { id: string }) {
           <p className="text-sm text-destructive">
             {(query.error as Error)?.message ?? 'Invoice not found.'}
           </p>
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-3"
+            onClick={() => query.refetch()}
+          >
+            Retry
+          </Button>
         </div>
       </div>
     );

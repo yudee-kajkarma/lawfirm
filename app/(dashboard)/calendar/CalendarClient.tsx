@@ -88,6 +88,22 @@ export function CalendarClient() {
         </Button>
       </div>
 
+      {query.isError && (
+        <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm">
+          <span className="text-destructive">
+            Couldn&rsquo;t load events: {(query.error as Error).message}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            className="ml-3"
+            onClick={() => query.refetch()}
+          >
+            Retry
+          </Button>
+        </div>
+      )}
+
       <CalendarBoard
         events={events}
         onRangeChange={(r) => {

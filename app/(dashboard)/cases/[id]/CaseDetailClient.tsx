@@ -87,6 +87,14 @@ export function CaseDetailClient({ id }: { id: string }) {
           <p className="text-sm text-destructive">
             {(caseQuery.error as Error)?.message ?? 'Case not found.'}
           </p>
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-3"
+            onClick={() => caseQuery.refetch()}
+          >
+            Retry
+          </Button>
         </div>
       </div>
     );
@@ -127,7 +135,7 @@ export function CaseDetailClient({ id }: { id: string }) {
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button asChild variant="outline" size="sm" className="gap-2">
             <Link
               href={`/invoices/new?${new URLSearchParams({

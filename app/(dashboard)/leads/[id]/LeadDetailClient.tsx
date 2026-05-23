@@ -86,6 +86,14 @@ export function LeadDetailClient({ id }: { id: string }) {
           <p className="text-sm text-destructive">
             {(query.error as Error)?.message ?? 'Lead not found.'}
           </p>
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-3"
+            onClick={() => query.refetch()}
+          >
+            Retry
+          </Button>
         </div>
       </div>
     );
@@ -130,7 +138,7 @@ export function LeadDetailClient({ id }: { id: string }) {
             )}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {isConverted && l.convertedToCase ? (
               <Button asChild variant="outline" size="sm" className="gap-2">
                 <Link href={`/cases/${l.convertedToCase}`}>

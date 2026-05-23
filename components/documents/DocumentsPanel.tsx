@@ -76,6 +76,18 @@ export function DocumentsPanel({ relatedToType, relatedToId, businessUnit }: Pro
               <Skeleton className="h-10 w-full" />
               <Skeleton className="h-10 w-3/4" />
             </div>
+          ) : list.isError ? (
+            <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-center text-xs">
+              <p className="text-destructive">{(list.error as Error).message}</p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-2"
+                onClick={() => list.refetch()}
+              >
+                Retry
+              </Button>
+            </div>
           ) : items.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               No documents yet — upload contracts, IDs, evidence, or notes.

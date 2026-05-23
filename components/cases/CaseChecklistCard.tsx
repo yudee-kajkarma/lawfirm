@@ -46,6 +46,24 @@ export function CaseChecklistCard({ caseId }: { caseId: string }) {
     }
   }
 
+  async function toggleItem(id: string, completed: boolean) {
+    try {
+      await update.mutateAsync({ id, patch: { completed } });
+    } catch (e) {
+      const msg = e instanceof ApiError ? e.message : 'Failed to update item';
+      toast.error(msg);
+    }
+  }
+
+  async function deleteItem(id: string) {
+    try {
+      await del.mutateAsync(id);
+    } catch (e) {
+      const msg = e instanceof ApiError ? e.message : 'Failed to delete item';
+      toast.error(msg);
+    }
+  }
+
   function onAddKey(e: KeyboardEvent<HTMLInputElement>) {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -73,6 +91,18 @@ export function CaseChecklistCard({ caseId }: { caseId: string }) {
             <Skeleton className="h-7 w-full" />
             <Skeleton className="h-7 w-3/4" />
           </>
+        ) : list.isError ? (
+          <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-center text-xs">
+            <p className="text-destructive">{(list.error as Error).message}</p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-2"
+              onClick={() => list.refetch()}
+            >
+              Retry
+            </Button>
+          </div>
         ) : items.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             No items yet — add the first task below.
@@ -89,12 +119,7 @@ export function CaseChecklistCard({ caseId }: { caseId: string }) {
                   <input
                     type="checkbox"
                     checked={item.completed}
-                    onChange={() =>
-                      update.mutate({
-                        id: item._id,
-                        patch: { completed: !item.completed },
-                      })
-                    }
+                    onChange={() => void toggleItem(item._id, !item.completed)}
                     className="size-4 rounded border-border accent-primary"
                   />
                   <span
@@ -110,7 +135,7 @@ export function CaseChecklistCard({ caseId }: { caseId: string }) {
                     variant="ghost"
                     size="icon"
                     className="size-7 opacity-0 transition-opacity group-hover:opacity-100"
-                    onClick={() => del.mutate(item._id)}
+                    onClick={() => void deleteItem(item._id)}
                     aria-label="Delete item"
                   >
                     <Trash2 className="size-3.5 text-muted-foreground" />

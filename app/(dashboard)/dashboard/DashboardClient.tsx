@@ -6,6 +6,7 @@ import { useMemo } from 'react';
 import { BreakdownCard, type BreakdownItem } from '@/components/dashboard/BreakdownCard';
 import { StatCard } from '@/components/dashboard/StatCard';
 import { humanizeEnum } from '@/components/leads/LeadForm';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useBusinessUnit } from '@/hooks/useBusinessUnit';
@@ -80,6 +81,14 @@ export function DashboardClient() {
         <p className="text-sm text-destructive">
           {(query.error as Error)?.message ?? 'Failed to load metrics.'}
         </p>
+        <Button
+          variant="outline"
+          size="sm"
+          className="mt-3"
+          onClick={() => query.refetch()}
+        >
+          Retry
+        </Button>
       </div>
     );
   }

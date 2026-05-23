@@ -160,6 +160,7 @@ export function InvoiceForm({
         <div className="space-y-1.5">
           <Label className="text-xs font-medium">Title</Label>
           <Input
+            autoFocus
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="e.g. Legal services — August 2026"

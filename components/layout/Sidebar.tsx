@@ -94,7 +94,11 @@ function SidebarItem({ href, label, icon: Icon, active }: NavItem & { active: bo
           transition={{ type: 'spring', stiffness: 400, damping: 30 }}
         />
       )}
-      <Icon className="relative z-10 size-4" />
+      {/* Icon picks up the theme's --sidebar-primary so the sidebar reflects
+          the active color palette. In the neutral "default" theme this is
+          near-black/near-white; in colored themes (rose, blue, etc.) it's
+          the saturated accent. */}
+      <Icon className="relative z-10 size-4 text-sidebar-primary" />
       <span className="relative z-10">{label}</span>
     </Link>
   );
