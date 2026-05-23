@@ -37,3 +37,29 @@ export type BusinessUnitDoc = InferSchemaType<typeof BusinessUnitSchema> & {
 export const BusinessUnit: Model<BusinessUnitDoc> =
   (mongoose.models.BusinessUnit as Model<BusinessUnitDoc>) ??
   mongoose.model<BusinessUnitDoc>('BusinessUnit', BusinessUnitSchema);
+
+export function serializeBusinessUnit(doc: Record<string, unknown>): {
+  _id: string;
+  key: string;
+  name: string;
+  description: string | null;
+  color: string;
+  order: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+} {
+  const isoDate = (v: unknown): string =>
+    v instanceof Date ? v.toISOString() : String(v);
+  return {
+    _id: String(doc._id),
+    key: String(doc.key ?? ''),
+    name: String(doc.name ?? ''),
+    description: doc.description == null ? null : String(doc.description),
+    color: String(doc.color ?? '#64748b'),
+    order: Number(doc.order ?? 100),
+    isActive: doc.isActive !== false,
+    createdAt: isoDate(doc.createdAt),
+    updatedAt: isoDate(doc.updatedAt),
+  };
+}

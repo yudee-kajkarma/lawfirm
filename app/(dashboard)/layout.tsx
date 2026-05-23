@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 
 import { auth } from '@/auth';
 import { AppShell } from '@/components/layout/AppShell';
+import { NoAccessLanding } from '@/components/layout/NoAccessLanding';
 import { connectDb } from '@/lib/db/connect';
 import { BusinessUnit } from '@/lib/models/BusinessUnit';
 
@@ -24,6 +25,13 @@ export default async function DashboardLayout({ children }: { children: ReactNod
       name: bu.name,
       color: bu.color ?? '#64748b',
     }));
+
+  // Non-admin with zero accessible BUs gets a dedicated landing page instead
+  // of a broken-feeling shell. Happens when their BU was deactivated or their
+  // BU list was emptied by an admin. They can still sign out from here.
+  if (!session.user.isAdmin && accessible.length === 0) {
+    return <NoAccessLanding email={session.user.email ?? ''} />;
+  }
 
   // Default BU selection: admins and multi-BU users see "all"; single-BU users
   // open straight to their one unit so the dropdown isn't misleading.

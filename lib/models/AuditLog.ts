@@ -46,3 +46,41 @@ export type AuditLogDoc = InferSchemaType<typeof AuditLogSchema> & {
 export const AuditLog: Model<AuditLogDoc> =
   (mongoose.models.AuditLog as Model<AuditLogDoc>) ??
   mongoose.model<AuditLogDoc>('AuditLog', AuditLogSchema);
+
+export function serializeAuditLog(doc: Record<string, unknown>): {
+  _id: string;
+  collectionName: string;
+  documentId: string;
+  action: string;
+  actorId: string | null;
+  actorEmail: string | null;
+  source: string;
+  ip: string | null;
+  userAgent: string | null;
+  businessUnit: string | null;
+  changes: Array<{ path: string; before: unknown; after: unknown }>;
+  createdAt: string;
+} {
+  const isoDate = (v: unknown): string =>
+    v instanceof Date ? v.toISOString() : String(v);
+  return {
+    _id: String(doc._id),
+    collectionName: String(doc.collectionName ?? ''),
+    documentId: String(doc.documentId ?? ''),
+    action: String(doc.action ?? ''),
+    actorId: doc.actorId == null ? null : String(doc.actorId),
+    actorEmail: doc.actorEmail == null ? null : String(doc.actorEmail),
+    source: String(doc.source ?? 'user'),
+    ip: doc.ip == null ? null : String(doc.ip),
+    userAgent: doc.userAgent == null ? null : String(doc.userAgent),
+    businessUnit: doc.businessUnit == null ? null : String(doc.businessUnit),
+    changes: Array.isArray(doc.changes)
+      ? (doc.changes as Array<{ path: string; before: unknown; after: unknown }>).map((c) => ({
+          path: String(c.path ?? ''),
+          before: c.before,
+          after: c.after,
+        }))
+      : [],
+    createdAt: isoDate(doc.createdAt),
+  };
+}
