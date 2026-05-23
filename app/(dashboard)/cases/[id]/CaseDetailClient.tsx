@@ -23,6 +23,7 @@ import { CaseEditSheet } from '@/components/cases/CaseEditSheet';
 import { CaseStatusBadge } from '@/components/cases/CaseStatusBadge';
 import { DocumentsPanel } from '@/components/documents/DocumentsPanel';
 import { TasksPanel } from '@/components/tasks/TasksPanel';
+import { Receipt } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -127,6 +128,19 @@ export function CaseDetailClient({ id }: { id: string }) {
         </div>
 
         <div className="flex items-center gap-2">
+          <Button asChild variant="outline" size="sm" className="gap-2">
+            <Link
+              href={`/invoices/new?${new URLSearchParams({
+                clientId: c.clientId,
+                caseId: c._id,
+                businessUnit: c.businessUnit,
+                title: `${c.caseNumber} — ${c.title}`,
+              }).toString()}`}
+            >
+              <Receipt className="size-3.5" />
+              Create invoice
+            </Link>
+          </Button>
           <Button variant="outline" size="sm" className="gap-2" onClick={() => setEditOpen(true)}>
             <Pencil className="size-3.5" />
             Edit

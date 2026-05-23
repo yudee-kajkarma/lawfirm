@@ -52,10 +52,13 @@ export function useCreateLead() {
         method: 'POST',
         body: JSON.stringify(input),
       });
+      // Refetch lists (including unmounted ones) before we resolve, so callers
+      // can navigate to the listing page and see the new record without
+      // a manual reload. `refetchType: 'all'` is what makes unmounted queries
+      // refetch — the default 'active' would mark them stale and wait until
+      // they re-mount, which causes the stale-flash users were seeing.
+      await qc.invalidateQueries({ queryKey: [...KEY, 'list'], refetchType: 'all' });
       return res.data;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: [...KEY, 'list'] });
     },
   });
 }

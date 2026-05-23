@@ -4,7 +4,7 @@ import { ExternalLink, Filter, Pencil, Plus, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
-import { SmartListCreateDialog } from '@/components/smart-lists/SmartListCreateDialog';
+import { SmartListCreateSheet } from '@/components/smart-lists/SmartListCreateSheet';
 import { SmartListDeleteAlert } from '@/components/smart-lists/SmartListDeleteAlert';
 import { SmartListEditSheet } from '@/components/smart-lists/SmartListEditSheet';
 import { summarizeFilterTree } from '@/components/smart-lists/filterSummary';
@@ -96,7 +96,7 @@ export function SmartListsClient() {
             ))}
           </SelectContent>
         </Select>
-        <SmartListCreateDialog
+        <SmartListCreateSheet
           trigger={
             <Button size="sm" className="gap-2">
               <Plus className="size-4" />
@@ -121,7 +121,7 @@ export function SmartListsClient() {
           title={entityFilter === 'all' ? 'No smart lists yet' : `No ${ENTITY_LABELS[entityFilter]} smart lists`}
           description="Smart lists save complex filter combinations as reusable views. Create one from any entity list page or here."
           action={
-            <SmartListCreateDialog
+            <SmartListCreateSheet
               defaultEntity={entityFilter === 'all' ? 'lead' : entityFilter}
               trigger={
                 <Button size="sm" className="gap-2">

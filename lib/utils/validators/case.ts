@@ -44,6 +44,14 @@ export type CaseUpdateInput = z.infer<typeof caseUpdateSchema>;
 export const convertLeadSchema = z.object({
   caseTitle: z.string().trim().min(1).max(200),
   caseType: trimmedString(100).nullish(),
+  caseDescription: trimmedString(5000).nullish(),
+  caseValue: z
+    .preprocess(
+      (v) => (v === '' || v === null || v === undefined ? null : v),
+      z.coerce.number().min(0).finite().nullable(),
+    )
+    .optional(),
+  caseTags: z.array(z.string().trim().max(50)).optional(),
   assignedTo: objectIdString.nullish(),
   // If provided, the lead is linked to an existing Contact instead of
   // spinning up a new one from the lead's fields.

@@ -53,10 +53,10 @@ export function useCreateContact() {
         method: 'POST',
         body: JSON.stringify(input),
       });
+      // Awaited so callers (dialogs and pages) see a fresh listing on close
+      // or navigation. `refetchType: 'all'` covers unmounted listings.
+      await qc.invalidateQueries({ queryKey: [...KEY, 'list'], refetchType: 'all' });
       return res.data;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: [...KEY, 'list'] });
     },
   });
 }

@@ -18,7 +18,7 @@ import { useSmartLists } from '@/hooks/useSmartLists';
 import type { SmartListEntity } from '@/lib/utils/smartListFields';
 import { cn } from '@/lib/utils';
 
-import { SmartListCreateDialog } from './SmartListCreateDialog';
+import { SmartListCreateSheet } from './SmartListCreateSheet';
 
 type Props = {
   entity: SmartListEntity;
@@ -114,7 +114,7 @@ export function SmartListPicker({ entity }: Props) {
           })
         )}
         <DropdownMenuSeparator />
-        <SmartListCreateDialog
+        <SmartListCreateSheet
           defaultEntity={entity}
           trigger={
             <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="gap-2 text-primary">

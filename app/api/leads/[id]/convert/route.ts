@@ -38,6 +38,9 @@ export const POST = withAuth<Params>(async (req, { params }, { user }) => {
       leadId: params.id,
       caseTitle: parsed.data.caseTitle,
       caseType: parsed.data.caseType ?? null,
+      caseDescription: parsed.data.caseDescription ?? null,
+      caseValue: parsed.data.caseValue ?? null,
+      caseTags: parsed.data.caseTags ?? [],
       assignedTo: parsed.data.assignedTo ?? null,
       existingContactId: parsed.data.existingContactId ?? null,
     });

@@ -14,6 +14,9 @@ export type ConvertLeadArgs = {
   leadId: string;
   caseTitle: string;
   caseType?: string | null;
+  caseDescription?: string | null;
+  caseValue?: number | null;
+  caseTags?: string[];
   assignedTo?: string | null;
   existingContactId?: string | null;
 };
@@ -99,6 +102,9 @@ export async function convertLead(args: ConvertLeadArgs): Promise<ConvertLeadRes
             caseNumber,
             title: args.caseTitle,
             caseType: args.caseType ?? null,
+            description: args.caseDescription ?? null,
+            value: args.caseValue ?? null,
+            tags: args.caseTags ?? [],
             businessUnit: lead.businessUnit,
             clientId: contact._id,
             assignedTo,

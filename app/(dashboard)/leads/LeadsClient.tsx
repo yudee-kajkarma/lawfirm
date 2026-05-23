@@ -1,10 +1,10 @@
 'use client';
 
 import { Plus, Search, UserPlus } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 
-import { LeadCreateDialog } from '@/components/leads/LeadCreateDialog';
 import { humanizeEnum } from '@/components/leads/LeadForm';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { SmartListPicker } from '@/components/smart-lists/SmartListPicker';
@@ -175,14 +175,12 @@ export function LeadsClient() {
             </SelectContent>
           </Select>
         </div>
-        <LeadCreateDialog
-          trigger={
-            <Button size="sm" className="gap-2">
-              <Plus className="size-4" />
-              New lead
-            </Button>
-          }
-        />
+        <Button asChild size="sm" className="gap-2">
+          <Link href="/leads/new">
+            <Plus className="size-4" />
+            New lead
+          </Link>
+        </Button>
       </div>
 
       {query.isLoading ? (
@@ -205,14 +203,12 @@ export function LeadsClient() {
           }
           action={
             !filtersActive ? (
-              <LeadCreateDialog
-                trigger={
-                  <Button size="sm" className="gap-2">
-                    <Plus className="size-4" />
-                    New lead
-                  </Button>
-                }
-              />
+              <Button asChild size="sm" className="gap-2">
+                <Link href="/leads/new">
+                  <Plus className="size-4" />
+                  New lead
+                </Link>
+              </Button>
             ) : undefined
           }
         />

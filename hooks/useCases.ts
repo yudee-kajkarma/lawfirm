@@ -54,10 +54,10 @@ export function useCreateCase() {
         method: 'POST',
         body: JSON.stringify(input),
       });
+      // Awaited so callers can navigate to /cases with the new row already in
+      // cache. `refetchType: 'all'` also refetches unmounted listings.
+      await qc.invalidateQueries({ queryKey: [...KEY, 'list'], refetchType: 'all' });
       return res.data;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: [...KEY, 'list'] });
     },
   });
 }
@@ -103,13 +103,17 @@ export function useConvertLead() {
         method: 'POST',
         body: JSON.stringify(args.input),
       });
+      // Awaited refetch of every list this touches — lead is now converted,
+      // a new contact exists, and a new case exists. Without this, navigating
+      // back to /cases or /leads after convert shows stale data until reload.
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ['leads', 'list'], refetchType: 'all' }),
+        qc.invalidateQueries({ queryKey: ['contacts', 'list'], refetchType: 'all' }),
+        qc.invalidateQueries({ queryKey: [...KEY, 'list'], refetchType: 'all' }),
+      ]);
       return res.data;
     },
     onSuccess: (result) => {
-      // Refresh anything that might reference the touched documents.
-      qc.invalidateQueries({ queryKey: ['leads'] });
-      qc.invalidateQueries({ queryKey: ['contacts'] });
-      qc.invalidateQueries({ queryKey: [...KEY, 'list'] });
       qc.setQueryData(['leads', 'detail', result.lead._id], result.lead);
       qc.setQueryData([...KEY, 'detail', result.case._id], result.case);
     },

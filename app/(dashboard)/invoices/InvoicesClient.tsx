@@ -1,13 +1,13 @@
 'use client';
 
-import { Briefcase, Plus, Search } from 'lucide-react';
+import { Plus, Receipt, Search } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from 'react';
 
-import { CaseStatusBadge } from '@/components/cases/CaseStatusBadge';
+import { InvoiceStatusBadge } from '@/components/invoices/InvoiceStatusBadge';
+import { formatCurrency, formatDate } from '@/components/invoices/format';
 import { EmptyState } from '@/components/shared/EmptyState';
-import { SmartListPicker } from '@/components/smart-lists/SmartListPicker';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -27,74 +27,68 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useBusinessUnit } from '@/hooks/useBusinessUnit';
-import { useCasesList } from '@/hooks/useCases';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
-import { CASE_STATUSES, type CaseStatus } from '@/lib/constants/enums';
-import type { Case } from '@/types/case';
+import { useInvoicesList } from '@/hooks/useInvoices';
+import { INVOICE_STATUSES, type InvoiceStatus } from '@/lib/constants/enums';
+import { cn } from '@/lib/utils';
+import type { Invoice } from '@/types/invoice';
 
 const PAGE_SIZE = 25;
 
-const STATUS_LABELS: Record<CaseStatus, string> = {
-  open: 'Open',
-  in_progress: 'In progress',
-  on_hold: 'On hold',
-  closed: 'Closed',
+const STATUS_LABELS: Record<InvoiceStatus, string> = {
+  draft: 'Draft',
+  sent: 'Sent',
+  paid: 'Paid',
+  overdue: 'Overdue',
+  void: 'Void',
 };
 
-function formatDate(iso: string | null): string {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
-}
-
-function formatValue(v: number | null): string {
-  if (v == null) return '—';
-  return v.toLocaleString(undefined, {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 0,
-  });
-}
-
-export function CasesClient() {
+export function InvoicesClient() {
   const router = useRouter();
-  const sp = useSearchParams();
   const { currentBU, businessUnits } = useBusinessUnit();
 
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | CaseStatus>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | InvoiceStatus>('all');
   const [page, setPage] = useState(1);
 
   const debouncedSearch = useDebouncedValue(search, 300);
-  const smartListId = sp.get('smartListId') ?? undefined;
 
   const filters = useMemo(
     () => ({
       page,
       limit: PAGE_SIZE,
       search: debouncedSearch || undefined,
-      status: statusFilter === 'all' ? undefined : statusFilter,
+      // "overdue" isn't a persisted status (it's computed) — filter by the
+      // underlying `sent` and let the client trim, OR ask the server to give
+      // us all sent and we mark visually. For v1, only pass the persisted
+      // statuses through the filter.
+      status:
+        statusFilter === 'all' || statusFilter === 'overdue'
+          ? undefined
+          : statusFilter,
       businessUnit: currentBU !== 'all' ? currentBU : undefined,
-      smartListId,
     }),
-    [page, debouncedSearch, statusFilter, currentBU, smartListId],
+    [page, debouncedSearch, statusFilter, currentBU],
   );
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, statusFilter, currentBU, smartListId]);
+  }, [debouncedSearch, statusFilter, currentBU]);
 
-  const query = useCasesList(filters);
+  const query = useInvoicesList(filters);
 
-  const buColor = (key: string) => businessUnits.find((bu) => bu.key === key)?.color ?? '#64748b';
+  const buColor = (key: string) =>
+    businessUnits.find((bu) => bu.key === key)?.color ?? '#64748b';
   const buName = (key: string) => businessUnits.find((bu) => bu.key === key)?.name ?? key;
+
+  const allItems = query.data?.items ?? [];
+  // Client-side filter for the computed "overdue" status.
+  const items: Invoice[] =
+    statusFilter === 'overdue' ? allItems.filter((i) => i.isOverdue) : allItems;
 
   const total = query.data?.meta.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const filtersActive = Boolean(debouncedSearch) || statusFilter !== 'all';
+  const filtersActive = !!debouncedSearch || statusFilter !== 'all';
 
   return (
     <div className="space-y-4 p-6">
@@ -105,7 +99,7 @@ export function CasesClient() {
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search case number, title…"
+              placeholder="Search invoice number or title…"
               className="pl-8"
             />
           </div>
@@ -118,19 +112,18 @@ export function CasesClient() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All statuses</SelectItem>
-              {CASE_STATUSES.map((s) => (
+              {INVOICE_STATUSES.map((s) => (
                 <SelectItem key={s} value={s}>
                   {STATUS_LABELS[s]}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          <SmartListPicker entity="case" />
         </div>
         <Button asChild size="sm" className="gap-2">
-          <Link href="/cases/new">
+          <Link href="/invoices/new">
             <Plus className="size-4" />
-            New case
+            New invoice
           </Link>
         </Button>
       </div>
@@ -144,21 +137,21 @@ export function CasesClient() {
             Retry
           </Button>
         </div>
-      ) : (query.data?.items.length ?? 0) === 0 ? (
+      ) : items.length === 0 ? (
         <EmptyState
-          icon={Briefcase}
-          title={filtersActive ? 'No matching cases' : 'No cases yet'}
+          icon={Receipt}
+          title={filtersActive ? 'No matching invoices' : 'No invoices yet'}
           description={
             filtersActive
-              ? 'Try clearing your filters.'
-              : 'Open a new case for an existing contact, or convert a qualified lead from the Leads page.'
+              ? 'Clear your filters or create a new invoice.'
+              : 'Create your first invoice from a case detail page or here.'
           }
           action={
             !filtersActive ? (
               <Button asChild size="sm" className="gap-2">
-                <Link href="/cases/new">
+                <Link href="/invoices/new">
                   <Plus className="size-4" />
-                  New case
+                  New invoice
                 </Link>
               </Button>
             ) : undefined
@@ -169,23 +162,58 @@ export function CasesClient() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[160px]">Case #</TableHead>
-                <TableHead>Title</TableHead>
-                <TableHead className="w-[130px]">Status</TableHead>
-                <TableHead className="w-[160px]">Business unit</TableHead>
-                <TableHead className="w-[120px] text-right">Value</TableHead>
-                <TableHead className="w-[120px]">Opened</TableHead>
+                <TableHead className="w-[180px]">Number</TableHead>
+                <TableHead>Client</TableHead>
+                <TableHead className="w-[120px]">Status</TableHead>
+                <TableHead className="w-[130px] text-right">Total</TableHead>
+                <TableHead className="w-[140px]">Business unit</TableHead>
+                <TableHead className="w-[120px]">Due</TableHead>
+                <TableHead className="w-[120px]">Issued</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {query.data!.items.map((c) => (
-                <CaseRow
-                  key={c._id}
-                  caseDoc={c}
-                  buColor={buColor(c.businessUnit)}
-                  buName={buName(c.businessUnit)}
-                  onClick={() => router.push(`/cases/${c._id}`)}
-                />
+              {items.map((inv) => (
+                <TableRow
+                  key={inv._id}
+                  onClick={() => router.push(`/invoices/${inv._id}`)}
+                  className="cursor-pointer hover:bg-muted/40"
+                >
+                  <TableCell className="font-mono text-xs">{inv.invoiceNumber}</TableCell>
+                  <TableCell>
+                    <div className="font-medium">{inv.clientSnapshot?.name ?? '—'}</div>
+                    {inv.title && (
+                      <div className="mt-0.5 truncate text-xs text-muted-foreground">
+                        {inv.title}
+                      </div>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <InvoiceStatusBadge status={inv.status} />
+                  </TableCell>
+                  <TableCell className="text-right text-sm tabular-nums">
+                    {formatCurrency(inv.total, inv.currency)}
+                  </TableCell>
+                  <TableCell>
+                    <span className="inline-flex items-center gap-1.5 text-sm">
+                      <span
+                        className="inline-block size-2 rounded-full"
+                        style={{ backgroundColor: buColor(inv.businessUnit) }}
+                      />
+                      <span>{buName(inv.businessUnit)}</span>
+                    </span>
+                  </TableCell>
+                  <TableCell
+                    className={cn(
+                      'text-xs tabular-nums',
+                      inv.isOverdue ? 'font-medium text-destructive' : 'text-muted-foreground',
+                    )}
+                  >
+                    {formatDate(inv.dueDate)}
+                  </TableCell>
+                  <TableCell className="text-xs text-muted-foreground">
+                    {formatDate(inv.issueDate)}
+                  </TableCell>
+                </TableRow>
               ))}
             </TableBody>
           </Table>
@@ -221,44 +249,6 @@ export function CasesClient() {
         </div>
       )}
     </div>
-  );
-}
-
-function CaseRow({
-  caseDoc,
-  buColor,
-  buName,
-  onClick,
-}: {
-  caseDoc: Case;
-  buColor: string;
-  buName: string;
-  onClick: () => void;
-}) {
-  return (
-    <TableRow
-      onClick={onClick}
-      className="cursor-pointer hover:bg-muted/40"
-      role="link"
-      tabIndex={0}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter') onClick();
-      }}
-    >
-      <TableCell className="font-mono text-xs">{caseDoc.caseNumber}</TableCell>
-      <TableCell className="font-medium">{caseDoc.title}</TableCell>
-      <TableCell>
-        <CaseStatusBadge status={caseDoc.status} />
-      </TableCell>
-      <TableCell>
-        <span className="inline-flex items-center gap-1.5 text-sm">
-          <span className="inline-block size-2 rounded-full" style={{ backgroundColor: buColor }} />
-          <span>{buName}</span>
-        </span>
-      </TableCell>
-      <TableCell className="text-right text-sm tabular-nums">{formatValue(caseDoc.value)}</TableCell>
-      <TableCell className="text-xs text-muted-foreground">{formatDate(caseDoc.openedAt)}</TableCell>
-    </TableRow>
   );
 }
 
