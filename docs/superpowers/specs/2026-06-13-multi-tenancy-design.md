@@ -114,6 +114,7 @@ This is not optional. MongoDB cannot efficiently use a composite index whose lea
 | `User.email` | global unique | compound unique `{ tenantId: 1, email: 1 }` |
 | `BusinessUnit.key` | global unique | compound unique `{ tenantId: 1, key: 1 }` |
 | `Counter.key` | global unique | compound unique `{ tenantId: 1, key: 1 }` |
+| `Settings` (singleton) | one doc total | one doc per tenant, enforced by unique `{ tenantId: 1 }` |
 | `Tenant.slug` | n/a | global unique |
 
 Email is *also* soft-enforced globally unique at signup time (Section 5.4) so login can stay simple (no "which company?" picker).
@@ -296,9 +297,14 @@ The audit-log plugin reads `tenantId` from `requestContext` and stamps it onto e
 
 ### 5.4 Global email uniqueness, soft-enforced at signup
 
-The DB constraint on `User.email` is compound `{ tenantId, email }`. But signup performs an extra global check (`User.findOne({ email })` with `__crossTenant: true`) and rejects if the email is in use anywhere. This keeps the login lookup unambiguous — `User.findOne({ email })` will always match at most one user.
+The DB constraint on `User.email` is compound `{ tenantId, email }`. But signup (and any "invite user" mutation inside a tenant) performs an extra global check that spans both `User` *and* `PlatformOperator`:
 
-If a tenant admin invites another user inside their own tenant, the same global check applies. This matches the "one email = one tenant" decision.
+- `User.findOne({ email }).setOptions({ __crossTenant: true })`
+- `PlatformOperator.findOne({ email })`
+
+Either match rejects the signup/invite. This keeps both login lookups (Section 5.2's two-step) unambiguous — for any given email, exactly one of the two collections matches at most one row. The operator seed script applies the same dual check before creating a `PlatformOperator`.
+
+This matches the "one email = one tenant" decision and also keeps the tenant/operator namespaces from overlapping.
 
 ### 5.5 Middleware (`/middleware.ts`)
 
@@ -407,6 +413,8 @@ active ──suspend──▶ suspended ──schedule-purge──▶ pending_pu
 - **`purging`** — in-flight purge. Set atomically (CAS) by the cron to prevent two crons racing.
 - After successful purge — tenant document hard-deleted along with all data. There is no "deleted" status; the row is gone.
 
+**Crash recovery.** If the process dies mid-purge, the tenant remains in `purging` with some rows already deleted and some not. The purge is idempotent — the next daily cron re-runs `purgeTenant` for any tenant stuck in `purging` (same eligibility check, treating `purging` the same as `pending_purge` past `purgeScheduledAt`). Re-running the sweep on partially-deleted data produces a clean zero-report.
+
 ### 7.2 Purge sequence
 
 Idempotent and resumable. Implemented as `purgeTenant(tenantId)`:
@@ -463,11 +471,13 @@ Documents are stored under `tenants/<tenantId>/<entityType>/<documentId>/<filena
 
 ### 7.4 Signed zero-report
 
-`PurgeReport` collection retains the report forever (it's small, one document per purged tenant). The HMAC is computed using `INTEGRATION_SECRET_KEY` over the canonicalized JSON of `{ tenantId, initialDeletes, verification }`. Operator console exposes a `/admin/purge-reports` viewer.
+`PurgeReport` collection retains the report forever (it's small, one document per purged tenant). The HMAC is computed using `INTEGRATION_SECRET_KEY` over the canonicalized JSON of `{ tenantId, initialDeletes, verification }` — the same key used for integration-secret encryption (already a deployment-required secret). Operator console exposes a `/admin/purge-reports` viewer.
 
 ### 7.5 Daily cron
 
-`POST /api/operator/internal/run-purges`, HMAC-signed via a separate `PURGE_CRON_SECRET`. Hit by Vercel cron (or equivalent) once per day. Finds every tenant with `status === 'pending_purge'` and `purgeScheduledAt <= now`, runs `purgeTenant` on each (sequentially, to avoid log noise).
+`POST /api/operator/internal/run-purges`, authenticated via a separate `PURGE_CRON_SECRET` env var (HMAC over the request body, so a leaked URL alone is useless). Distinct from `INTEGRATION_SECRET_KEY` because their failure modes are different — leaking the cron secret lets you trigger purges of *eligible* tenants (already 30 days into a scheduled purge), while leaking the integration key compromises stored credentials.
+
+Hit by Vercel cron (or equivalent) once per day. Finds every tenant with `status === 'pending_purge' && purgeScheduledAt <= now`, plus every tenant stuck in `status === 'purging'` (crash recovery, Section 7.1), and runs `purgeTenant` on each sequentially.
 
 Manual "purge now" is available on the operator detail page, eligibility-gated identically.
 
