@@ -14,6 +14,8 @@
     "test:plugins": "tsx --env-file=.env.local scripts/test-plugins.ts",
     "test:conversion": "tsx --env-file=.env.local scripts/test-conversion.ts",
     "test:smart-list": "tsx --env-file=.env.local scripts/test-smart-list.ts",
+    "test:tenant-scope": "tsx --env-file=.env.local scripts/test-tenant-scope.ts",
+    "test:multitenancy": "tsx scripts/test-multitenancy-invariants.ts",
     "seed": "tsx --env-file=.env.local scripts/seed.ts",
     "seed:reset": "tsx --env-file=.env.local scripts/seed.ts --reset"
   },
