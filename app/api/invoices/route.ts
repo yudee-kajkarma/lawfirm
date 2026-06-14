@@ -106,11 +106,12 @@ export const POST = withAuth(async (req, _ctx, { user }) => {
     taxRate: parsed.data.taxRate,
   });
 
-  const invoiceNumber = await generateInvoiceNumber(parsed.data.businessUnit);
+  const invoiceNumber = await generateInvoiceNumber(user.tenantId, parsed.data.businessUnit);
 
   const created = await Invoice.create({
     title: parsed.data.title ?? null,
     businessUnit: parsed.data.businessUnit,
+    tenantId: user.tenantId,
     clientId: parsed.data.clientId,
     caseId: parsed.data.caseId ?? null,
     clientSnapshot: {

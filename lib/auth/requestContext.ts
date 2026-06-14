@@ -5,6 +5,7 @@ import type { AuditSource } from '../constants/enums';
 export type RequestUser = {
   _id: string;
   email: string;
+  tenantId: string;
   isAdmin: boolean;
   businessUnits: string[];
 };

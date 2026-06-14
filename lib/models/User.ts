@@ -3,13 +3,18 @@ import mongoose, { Schema, type InferSchemaType, type Model } from 'mongoose';
 import { auditFieldsPlugin } from '../db/auditFieldsPlugin';
 import { auditLogPlugin } from '../db/auditLogPlugin';
 import { softDeletePlugin } from '../db/softDeletePlugin';
+import { tenantScopePlugin } from '../db/tenantScopePlugin';
 
 const UserSchema = new Schema(
   {
+    // `tenantId` is injected by tenantScopePlugin (required, indexed) — do not
+    // declare it here. The plugin must run first so audit hooks see the field.
     email: {
       type: String,
       required: true,
-      unique: true,
+      // NOT unique here — uniqueness is enforced per-tenant via the compound
+      // index below. A global unique would prevent the same email existing in
+      // different tenants.
       lowercase: true,
       trim: true,
     },
@@ -27,6 +32,8 @@ const UserSchema = new Schema(
   { timestamps: true },
 );
 
+// tenantScopePlugin FIRST — adds tenantId field before audit hooks reference it.
+UserSchema.plugin(tenantScopePlugin);
 UserSchema.plugin(softDeletePlugin);
 UserSchema.plugin(auditFieldsPlugin);
 UserSchema.plugin(auditLogPlugin, {
@@ -36,9 +43,17 @@ UserSchema.plugin(auditLogPlugin, {
   excludePaths: ['passwordHash', 'lastLoginAt'],
 });
 
-UserSchema.index({ businessUnits: 1 });
+// Per-tenant email uniqueness replaces the old global unique constraint.
+UserSchema.index({ tenantId: 1, email: 1 }, { unique: true });
+// BU membership queries are always tenant-scoped in practice.
+UserSchema.index({ tenantId: 1, businessUnits: 1 });
 
-export type UserDoc = InferSchemaType<typeof UserSchema> & { _id: mongoose.Types.ObjectId };
+export type UserDoc = InferSchemaType<typeof UserSchema> & {
+  _id: mongoose.Types.ObjectId;
+  // tenantScopePlugin adds this field dynamically via schema.add(); InferSchemaType
+  // doesn't see plugin-added fields, so we augment the type here.
+  tenantId: mongoose.Types.ObjectId;
+};
 
 export const User: Model<UserDoc> =
   (mongoose.models.User as Model<UserDoc>) ?? mongoose.model<UserDoc>('User', UserSchema);
@@ -50,6 +65,7 @@ export const User: Model<UserDoc> =
  */
 export function serializeUser(doc: Record<string, unknown>): {
   _id: string;
+  tenantId: string;
   email: string;
   name: string;
   isAdmin: boolean;
@@ -66,6 +82,7 @@ export function serializeUser(doc: Record<string, unknown>): {
     v == null ? null : isoDate(v);
   return {
     _id: String(doc._id),
+    tenantId: String(doc.tenantId),
     email: String(doc.email ?? ''),
     name: String(doc.name ?? ''),
     isAdmin: Boolean(doc.isAdmin),

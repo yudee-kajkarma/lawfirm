@@ -40,10 +40,13 @@ async function main(): Promise<void> {
   await connectDb();
   log('connect', `db=${mongoose.connection.name}`);
 
+  const testTenantId = new Types.ObjectId();
+
   const testUser = {
     _id: new Types.ObjectId().toString(),
     email: 'test-conversion@example.com',
     name: 'Conversion Tester',
+    tenantId: testTenantId.toString(),
     isAdmin: true,
     businessUnits: ['immigration', 'law', 'wealth'],
   };
@@ -60,6 +63,7 @@ async function main(): Promise<void> {
         source: 'website',
         stage: 'qualified',
         email: 'conv1@test.local',
+        tenantId: testTenantId,
       });
 
       const conversionStart = new Date();
@@ -75,7 +79,7 @@ async function main(): Promise<void> {
       }
       log('test1', `created caseNumber=${r1.case.caseNumber}`);
 
-      const refreshed1 = await Lead.findById(lead1._id);
+      const refreshed1 = await Lead.findOne({ _id: lead1._id, tenantId: testTenantId });
       if (!refreshed1) fail('test1', 'lead missing after txn');
       if (refreshed1.stage !== 'converted') {
         fail('test1', `lead.stage=${refreshed1.stage}, expected converted`);
@@ -91,6 +95,7 @@ async function main(): Promise<void> {
 
       // Only count audit entries written during the conversion itself.
       const conversionAudits = await AuditLog.find({
+        tenantId: testTenantId,
         createdAt: { $gte: conversionStart },
         documentId: { $in: [lead1._id, r1.contact._id, r1.case._id] },
       });
@@ -107,10 +112,11 @@ async function main(): Promise<void> {
       if (shape !== expected) fail('test1', `audit shape mismatch — expected ${expected}`);
 
       // Cleanup test 1
-      await Lead.deleteOne({ _id: lead1._id }).setOptions({ withDeleted: true });
-      await Contact.deleteOne({ _id: r1.contact._id }).setOptions({ withDeleted: true });
-      await Case.deleteOne({ _id: r1.case._id }).setOptions({ withDeleted: true });
+      await Lead.deleteOne({ _id: lead1._id, tenantId: testTenantId }).setOptions({ withDeleted: true });
+      await Contact.deleteOne({ _id: r1.contact._id, tenantId: testTenantId }).setOptions({ withDeleted: true });
+      await Case.deleteOne({ _id: r1.case._id, tenantId: testTenantId }).setOptions({ withDeleted: true });
       await AuditLog.deleteMany({
+        tenantId: testTenantId,
         documentId: { $in: [lead1._id, r1.contact._id, r1.case._id] },
       });
 
@@ -122,6 +128,7 @@ async function main(): Promise<void> {
         businessUnit: BU,
         source: 'website',
         stage: 'qualified',
+        tenantId: testTenantId,
       });
 
       let didThrow = false;
@@ -138,7 +145,7 @@ async function main(): Promise<void> {
       }
       if (!didThrow) fail('test2', 'convertLead should have thrown on overlong title');
 
-      const lead2After = await Lead.findById(lead2._id);
+      const lead2After = await Lead.findOne({ _id: lead2._id, tenantId: testTenantId });
       if (lead2After?.stage !== 'qualified') {
         fail('test2', `lead.stage=${lead2After?.stage}, expected qualified`);
       }
@@ -148,6 +155,7 @@ async function main(): Promise<void> {
       log('test2', 'lead state unchanged ✓');
 
       const orphanContacts = await Contact.find({
+        tenantId: testTenantId,
         businessUnit: BU,
         firstName: 'Conv',
         lastName: 'Test2',
@@ -155,13 +163,13 @@ async function main(): Promise<void> {
       if (orphanContacts.length > 0) {
         fail('test2', `${orphanContacts.length} orphan contact(s) leaked`);
       }
-      const orphanCases = await Case.find({ convertedFromLead: lead2._id });
+      const orphanCases = await Case.find({ tenantId: testTenantId, convertedFromLead: lead2._id });
       if (orphanCases.length > 0) {
         fail('test2', `${orphanCases.length} orphan case(s) leaked`);
       }
       log('test2', 'no orphan contact/case ✓');
 
-      await Lead.deleteOne({ _id: lead2._id }).setOptions({ withDeleted: true });
+      await Lead.deleteOne({ _id: lead2._id, tenantId: testTenantId }).setOptions({ withDeleted: true });
 
       // ─────── Test 3: concurrent ───────
       log('test3', 'concurrent conversions');
@@ -171,6 +179,7 @@ async function main(): Promise<void> {
         businessUnit: BU,
         source: 'website',
         stage: 'qualified',
+        tenantId: testTenantId,
       });
       const leadB = await Lead.create({
         firstName: 'Conv',
@@ -178,6 +187,7 @@ async function main(): Promise<void> {
         businessUnit: BU,
         source: 'website',
         stage: 'qualified',
+        tenantId: testTenantId,
       });
 
       const [rA, rB] = await Promise.all([
@@ -198,16 +208,17 @@ async function main(): Promise<void> {
         rA.case._id,
         rB.case._id,
       ];
-      await Lead.deleteMany({ _id: { $in: [leadA._id, leadB._id] } }).setOptions({
+      await Lead.deleteMany({ tenantId: testTenantId, _id: { $in: [leadA._id, leadB._id] } }).setOptions({
         withDeleted: true,
       });
       await Contact.deleteMany({
+        tenantId: testTenantId,
         _id: { $in: [rA.contact._id, rB.contact._id] },
       }).setOptions({ withDeleted: true });
-      await Case.deleteMany({ _id: { $in: [rA.case._id, rB.case._id] } }).setOptions({
+      await Case.deleteMany({ tenantId: testTenantId, _id: { $in: [rA.case._id, rB.case._id] } }).setOptions({
         withDeleted: true,
       });
-      await AuditLog.deleteMany({ documentId: { $in: allIds } });
+      await AuditLog.deleteMany({ tenantId: testTenantId, documentId: { $in: allIds } });
     },
   );
 

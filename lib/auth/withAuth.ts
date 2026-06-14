@@ -12,6 +12,7 @@ export type HydratedUser = {
   _id: string;
   email: string;
   name: string;
+  tenantId: string;
   isAdmin: boolean;
   businessUnits: string[];
 };
@@ -38,11 +39,27 @@ export function withAuth<TParams = Record<string, string | string[]>>(
       if (!session?.user?.id) {
         return apiError('UNAUTHORIZED', 'Not signed in', 401);
       }
+      if (!session.user.tenantId) {
+        // Legacy JWT issued before MT-1 — force a fresh login.
+        return apiError('UNAUTHORIZED', 'Session expired, please sign in again', 401);
+      }
 
       await connectDb();
-      const userDoc = await User.findById(session.user.id);
+      // Include tenantId in the filter to satisfy tenantScopePlugin AND so a
+      // user whose tenant assignment changed since the JWT was issued is
+      // treated as not-found (forcing re-login rather than serving stale data).
+      const userDoc = await User.findOne({
+        _id: session.user.id,
+        tenantId: session.user.tenantId,
+      });
       if (!userDoc || !userDoc.isActive) {
         return apiError('UNAUTHORIZED', 'User not found or inactive', 401);
+      }
+
+      if (!userDoc.tenantId) {
+        // Should be impossible post-MT-1 because tenantId is required on the User
+        // schema. If this ever fires it means the seed/migration missed a user.
+        return apiError('UNAUTHORIZED', 'User has no tenant', 401);
       }
 
       if (options.adminOnly && !userDoc.isAdmin) {
@@ -53,6 +70,7 @@ export function withAuth<TParams = Record<string, string | string[]>>(
         _id: userDoc._id.toString(),
         email: userDoc.email,
         name: userDoc.name,
+        tenantId: userDoc.tenantId.toString(),
         isAdmin: userDoc.isAdmin,
         businessUnits: userDoc.businessUnits,
       };
@@ -72,6 +90,7 @@ export function withAuth<TParams = Record<string, string | string[]>>(
           user: {
             _id: hydrated._id,
             email: hydrated.email,
+            tenantId: hydrated.tenantId,
             isAdmin: hydrated.isAdmin,
             businessUnits: hydrated.businessUnits,
           },

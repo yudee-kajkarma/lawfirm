@@ -3,16 +3,17 @@ import mongoose, { Schema, type InferSchemaType, type Model } from 'mongoose';
 import { auditFieldsPlugin } from '../db/auditFieldsPlugin';
 import { auditLogPlugin } from '../db/auditLogPlugin';
 import { softDeletePlugin } from '../db/softDeletePlugin';
+import { tenantScopePlugin } from '../db/tenantScopePlugin';
 
 const BusinessUnitSchema = new Schema(
   {
     // Short, lowercase, URL-safe identifier referenced from every business record
     // (`businessUnit: 'law'`). Never changes once created; admin renames affect
-    // `name`, not `key`.
+    // `name`, not `key`. NOT globally unique — uniqueness is per-tenant via the
+    // compound index below.
     key: {
       type: String,
       required: true,
-      unique: true,
       lowercase: true,
       trim: true,
     },
@@ -26,12 +27,22 @@ const BusinessUnitSchema = new Schema(
   { timestamps: true },
 );
 
+// tenantScopePlugin FIRST — adds tenantId field before audit hooks reference it.
+BusinessUnitSchema.plugin(tenantScopePlugin);
 BusinessUnitSchema.plugin(softDeletePlugin);
 BusinessUnitSchema.plugin(auditFieldsPlugin);
 BusinessUnitSchema.plugin(auditLogPlugin, { collectionName: 'businessUnits' });
 
+// Per-tenant key uniqueness replaces the old global unique constraint.
+BusinessUnitSchema.index({ tenantId: 1, key: 1 }, { unique: true });
+// Ordering index for the BU list page (admin sorts by order within tenant).
+BusinessUnitSchema.index({ tenantId: 1, order: 1 });
+
 export type BusinessUnitDoc = InferSchemaType<typeof BusinessUnitSchema> & {
   _id: mongoose.Types.ObjectId;
+  // tenantScopePlugin adds this field dynamically via schema.add(); InferSchemaType
+  // doesn't see plugin-added fields, so we augment the type here.
+  tenantId: mongoose.Types.ObjectId;
 };
 
 export const BusinessUnit: Model<BusinessUnitDoc> =
@@ -40,6 +51,7 @@ export const BusinessUnit: Model<BusinessUnitDoc> =
 
 export function serializeBusinessUnit(doc: Record<string, unknown>): {
   _id: string;
+  tenantId: string;
   key: string;
   name: string;
   description: string | null;
@@ -53,6 +65,7 @@ export function serializeBusinessUnit(doc: Record<string, unknown>): {
     v instanceof Date ? v.toISOString() : String(v);
   return {
     _id: String(doc._id),
+    tenantId: String(doc.tenantId),
     key: String(doc.key ?? ''),
     name: String(doc.name ?? ''),
     description: doc.description == null ? null : String(doc.description),

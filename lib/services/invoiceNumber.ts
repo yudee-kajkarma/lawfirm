@@ -1,4 +1,4 @@
-import type { ClientSession } from 'mongoose';
+import { Types, type ClientSession } from 'mongoose';
 
 import { Counter } from '../models/Counter';
 
@@ -11,15 +11,17 @@ import { Counter } from '../models/Counter';
  * similar multi-step flows arrive).
  */
 export async function generateInvoiceNumber(
+  tenantId: string,
   businessUnit: string,
   session?: ClientSession,
 ): Promise<string> {
   const year = new Date().getFullYear();
   const key = `invoice:${businessUnit}:${year}`;
+  const tid = new Types.ObjectId(tenantId);
 
   const counter = await Counter.findOneAndUpdate(
-    { key },
-    { $inc: { value: 1 } },
+    { tenantId: tid, key },
+    { $inc: { value: 1 }, $setOnInsert: { tenantId: tid, key } },
     { upsert: true, returnDocument: 'after', session },
   );
   if (!counter) {

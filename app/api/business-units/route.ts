@@ -12,12 +12,15 @@ function escapeRegex(input: string): string {
 }
 
 export const GET = withAuth(
-  async (req) => {
+  async (req, _ctx, { user }) => {
     await connectDb();
     const list = parseListQuery(req);
     const sp = req.nextUrl.searchParams;
 
-    const filter: Record<string, unknown> = {};
+    // Always start with the caller's tenant — no cross-tenant leakage possible.
+    const filter: Record<string, unknown> = {
+      tenantId: user.tenantId,
+    };
 
     const isActive = sp.get('isActive');
     if (isActive === 'active') filter.isActive = true;
@@ -50,7 +53,7 @@ export const GET = withAuth(
 );
 
 export const POST = withAuth(
-  async (req) => {
+  async (req, _ctx, { user }) => {
     await connectDb();
 
     let body: unknown;
@@ -70,17 +73,18 @@ export const POST = withAuth(
       );
     }
 
-    // Catch dup key collisions cleanly. Include soft-deleted in the check
-    // so a previously-removed key can't quietly be re-used and create a
-    // duplicate when the soft-deleted doc gets restored.
-    const existing = await BusinessUnit.findOne({ key: parsed.data.key }).setOptions({
-      withDeleted: true,
-    });
+    // Catch dup key collisions cleanly. Scope to this tenant and include
+    // soft-deleted records so a previously-removed key can't be silently
+    // re-used and then cause confusion when the soft-deleted doc is restored.
+    const existing = await BusinessUnit.findOne({
+      tenantId: user.tenantId,
+      key: parsed.data.key,
+    }).setOptions({ withDeleted: true });
     if (existing) {
       return apiError('CONFLICT', 'A business unit with this key already exists', 409);
     }
 
-    const created = await BusinessUnit.create(parsed.data);
+    const created = await BusinessUnit.create({ ...parsed.data, tenantId: user.tenantId });
     return apiOk(
       { data: serializeBusinessUnit(created.toObject() as Record<string, unknown>) },
       201,

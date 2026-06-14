@@ -4,6 +4,7 @@ import { CONTACT_TYPES } from '../constants/enums';
 import { auditFieldsPlugin } from '../db/auditFieldsPlugin';
 import { auditLogPlugin } from '../db/auditLogPlugin';
 import { softDeletePlugin } from '../db/softDeletePlugin';
+import { tenantScopePlugin } from '../db/tenantScopePlugin';
 
 const AddressSchema = new Schema(
   {
@@ -40,19 +41,25 @@ const ContactSchema = new Schema(
   { timestamps: true },
 );
 
+// tenantScopePlugin FIRST — adds tenantId field before audit hooks reference it.
+ContactSchema.plugin(tenantScopePlugin);
 ContactSchema.plugin(softDeletePlugin);
 ContactSchema.plugin(auditFieldsPlugin);
 ContactSchema.plugin(auditLogPlugin, { collectionName: 'contacts' });
 
 // Composite indexes for the common access patterns the list endpoint will use.
-ContactSchema.index({ businessUnit: 1, contactType: 1 });
-ContactSchema.index({ businessUnit: 1, createdAt: -1 });
+// All leading with tenantId so every query is tenant-scoped from the index root.
+ContactSchema.index({ tenantId: 1, businessUnit: 1, contactType: 1 });
+ContactSchema.index({ tenantId: 1, businessUnit: 1, createdAt: -1 });
 ContactSchema.index({ email: 1 }, { sparse: true });
 // Text index lets us upgrade to `$text` search later without re-indexing.
 ContactSchema.index({ firstName: 'text', lastName: 'text', email: 'text', companyName: 'text' });
 
 export type ContactDoc = InferSchemaType<typeof ContactSchema> & {
   _id: mongoose.Types.ObjectId;
+  // tenantScopePlugin adds this field dynamically via schema.add(); InferSchemaType
+  // doesn't see plugin-added fields, so we augment the type here.
+  tenantId: mongoose.Types.ObjectId;
 };
 
 export const Contact: Model<ContactDoc> =
@@ -66,6 +73,7 @@ export const Contact: Model<ContactDoc> =
  */
 export function serializeContact(doc: Record<string, unknown>): {
   _id: string;
+  tenantId: string;
   firstName: string;
   lastName: string;
   email: string | null;
@@ -88,6 +96,7 @@ export function serializeContact(doc: Record<string, unknown>): {
 
   return {
     _id: String(doc._id),
+    tenantId: String(doc.tenantId),
     firstName: get<string>('firstName'),
     lastName: get<string>('lastName'),
     email: stringify(get<unknown>('email')),

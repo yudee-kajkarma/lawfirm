@@ -89,6 +89,7 @@ export const POST = withAuth(async (req, _ctx, { user }) => {
   const created = await DocumentModel.create({
     ...parsed.data,
     s3Bucket: STORAGE_BUCKET,
+    tenantId: user.tenantId,
   });
 
   return apiOk(

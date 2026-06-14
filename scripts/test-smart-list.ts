@@ -46,6 +46,8 @@ async function main(): Promise<void> {
   await connectDb();
   log('connect', `db=${mongoose.connection.name}`);
 
+  const testTenantId = new Types.ObjectId();
+
   // ──────── Test 1: translator unit cases ────────
   log('test1', 'translator shapes');
 
@@ -153,6 +155,7 @@ async function main(): Promise<void> {
     _id: testUserId,
     email: 'sl-test@example.com',
     name: 'Smart List Tester',
+    tenantId: testTenantId.toString(),
     isAdmin: true,
     businessUnits: ['immigration', 'law', 'wealth'],
   };
@@ -167,6 +170,7 @@ async function main(): Promise<void> {
       stage: 'qualified',
       value: 50000,
       email: 'sltest-a@example.com',
+      tenantId: testTenantId,
     });
     const b = await Lead.create({
       firstName: 'SLTestB',
@@ -176,6 +180,7 @@ async function main(): Promise<void> {
       stage: 'new_inquiry',
       value: 2000,
       email: 'sltest-b@example.com',
+      tenantId: testTenantId,
     });
     const c = await Lead.create({
       firstName: 'SLTestC',
@@ -185,6 +190,7 @@ async function main(): Promise<void> {
       stage: 'lost',
       value: 30000,
       email: 'sltest-c@example.com',
+      tenantId: testTenantId,
     });
 
     // "Hot deals" smart list: stage in (qualified, proposal, negotiation) AND value > 10k.
@@ -205,6 +211,7 @@ async function main(): Promise<void> {
 
     // Limit the test to our seed rows so unrelated leads don't pollute.
     const found = await Lead.find({
+      tenantId: testTenantId,
       ...filter,
       _id: { $in: [a._id, b._id, c._id] },
     });
@@ -219,10 +226,10 @@ async function main(): Promise<void> {
     // Forgetting the second line is what leaks "sl-test@example.com" rows
     // into the auditLogs collection over time.
     const seededIds = [a._id, b._id, c._id];
-    await Lead.deleteMany({ _id: { $in: seededIds } }).setOptions({
+    await Lead.deleteMany({ tenantId: testTenantId, _id: { $in: seededIds } }).setOptions({
       withDeleted: true,
     });
-    await AuditLog.deleteMany({ documentId: { $in: seededIds } });
+    await AuditLog.deleteMany({ tenantId: testTenantId, documentId: { $in: seededIds } });
   });
 
   await disconnectDb();

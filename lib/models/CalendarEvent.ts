@@ -4,6 +4,7 @@ import { POLY_RELATED_TYPES } from '../constants/enums';
 import { auditFieldsPlugin } from '../db/auditFieldsPlugin';
 import { auditLogPlugin } from '../db/auditLogPlugin';
 import { softDeletePlugin } from '../db/softDeletePlugin';
+import { tenantScopePlugin } from '../db/tenantScopePlugin';
 
 const RelatedToSchema = new Schema(
   {
@@ -38,18 +39,23 @@ const CalendarEventSchema = new Schema(
   { timestamps: true },
 );
 
+// tenantScopePlugin FIRST — adds tenantId field before audit hooks reference it.
+CalendarEventSchema.plugin(tenantScopePlugin);
 CalendarEventSchema.plugin(softDeletePlugin);
 CalendarEventSchema.plugin(auditFieldsPlugin);
 CalendarEventSchema.plugin(auditLogPlugin, { collectionName: 'calendarEvents' });
 
-// Compound polymorphic index (CLAUDE.md §3.5).
+// Compound polymorphic index (CLAUDE.md §3.5) — does not start with businessUnit.
 CalendarEventSchema.index({ 'relatedTo.type': 1, 'relatedTo.id': 1 });
 
-// The list endpoint's hot path: events in `[start, end]` for a BU.
-CalendarEventSchema.index({ businessUnit: 1, startsAt: 1, endsAt: 1 });
+// The list endpoint's hot path: events in `[start, end]` for a BU within a tenant.
+CalendarEventSchema.index({ tenantId: 1, businessUnit: 1, startsAt: 1, endsAt: 1 });
 
 export type CalendarEventDoc = InferSchemaType<typeof CalendarEventSchema> & {
   _id: mongoose.Types.ObjectId;
+  // tenantScopePlugin adds this field dynamically via schema.add(); InferSchemaType
+  // doesn't see plugin-added fields, so we augment the type here.
+  tenantId: mongoose.Types.ObjectId;
 };
 
 export const CalendarEvent: Model<CalendarEventDoc> =
@@ -68,6 +74,7 @@ export function serializeCalendarEvent(doc: Record<string, unknown>) {
 
   return {
     _id: String(doc._id),
+    tenantId: String(doc.tenantId),
     title: doc.title as string,
     description: stringify(doc.description),
     startsAt: isoDateRequired(doc.startsAt),

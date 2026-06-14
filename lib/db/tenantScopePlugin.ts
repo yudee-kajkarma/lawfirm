@@ -1,6 +1,6 @@
 import { Schema } from 'mongoose';
 
-import { TENANT_SCOPE_PLUGIN_SYMBOL } from '../tenancy/tenantModels';
+import { TENANT_SCOPE_PLUGIN_SYMBOL } from '../tenancy/tenantSymbol';
 
 /**
  * Mongoose plugin that adds `tenantId: ObjectId` (required, indexed) to the

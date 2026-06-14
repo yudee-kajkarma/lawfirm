@@ -2,10 +2,11 @@ import mongoose, { Schema, type InferSchemaType, type Model } from 'mongoose';
 
 import { auditFieldsPlugin } from '../db/auditFieldsPlugin';
 import { auditLogPlugin } from '../db/auditLogPlugin';
+import { tenantScopePlugin } from '../db/tenantScopePlugin';
 
 /**
- * Singleton — exactly one Settings document exists per deployment. Access via
- * `getSettings()` which creates the doc on first call.
+ * Singleton — exactly one Settings document exists per tenant. Access via
+ * `getSettings(tenantId)` which creates the doc on first call.
  *
  * Integration credentials are stored encrypted (AES-256-GCM via
  * `lib/utils/encryption.ts`, added in Phase 13). For now the fields exist as
@@ -15,6 +16,7 @@ import { auditLogPlugin } from '../db/auditLogPlugin';
 
 const SettingsSchema = new Schema(
   {
+    // `tenantId` is injected by tenantScopePlugin — one Settings doc per tenant.
     organizationName: { type: String, default: 'InstaPath CRM' },
     integrations: {
       sendgrid: {
@@ -44,7 +46,9 @@ const SettingsSchema = new Schema(
   { timestamps: true },
 );
 
+// tenantScopePlugin FIRST — adds tenantId field before audit hooks reference it.
 // Intentionally no softDeletePlugin — the singleton can't be deleted.
+SettingsSchema.plugin(tenantScopePlugin);
 SettingsSchema.plugin(auditFieldsPlugin);
 SettingsSchema.plugin(auditLogPlugin, {
   collectionName: 'settings',
@@ -53,16 +57,27 @@ SettingsSchema.plugin(auditLogPlugin, {
   excludePaths: ['integrations'],
 });
 
+// Exactly one Settings doc per tenant.
+SettingsSchema.index({ tenantId: 1 }, { unique: true });
+
 export type SettingsDoc = InferSchemaType<typeof SettingsSchema> & {
   _id: mongoose.Types.ObjectId;
+  // tenantScopePlugin adds this field dynamically via schema.add(); InferSchemaType
+  // doesn't see plugin-added fields, so we augment the type here.
+  tenantId: mongoose.Types.ObjectId;
 };
 
 export const Settings: Model<SettingsDoc> =
   (mongoose.models.Settings as Model<SettingsDoc>) ??
   mongoose.model<SettingsDoc>('Settings', SettingsSchema);
 
-export async function getSettings(): Promise<SettingsDoc> {
-  const existing = await Settings.findOne({});
+/**
+ * Returns the Settings doc for a tenant, creating it on first access.
+ * The `tenantId` argument satisfies the tenantScopePlugin guard on create.
+ */
+export async function getSettings(tenantId: string): Promise<SettingsDoc> {
+  const tid = new mongoose.Types.ObjectId(tenantId);
+  const existing = await Settings.findOne({ tenantId: tid });
   if (existing) return existing;
-  return Settings.create({});
+  return Settings.create({ tenantId: tid });
 }

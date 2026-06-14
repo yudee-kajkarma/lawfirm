@@ -4,12 +4,13 @@ import { CASE_STATUSES } from '../constants/enums';
 import { auditFieldsPlugin } from '../db/auditFieldsPlugin';
 import { auditLogPlugin } from '../db/auditLogPlugin';
 import { softDeletePlugin } from '../db/softDeletePlugin';
+import { tenantScopePlugin } from '../db/tenantScopePlugin';
 
 const CaseSchema = new Schema(
   {
     // Human-readable number, format `<BU>-<YEAR>-<SEQ>` e.g. LAW-2026-0001.
     // Generated via `generateCaseNumber()` — never set by hand.
-    caseNumber: { type: String, required: true, unique: true },
+    caseNumber: { type: String, required: true },
     title: { type: String, required: true, trim: true, maxlength: 200 },
     description: { type: String, default: null, maxlength: 5000 },
 
@@ -35,17 +36,23 @@ const CaseSchema = new Schema(
   { timestamps: true },
 );
 
+// tenantScopePlugin FIRST — adds tenantId field before audit hooks reference it.
+CaseSchema.plugin(tenantScopePlugin);
 CaseSchema.plugin(softDeletePlugin);
 CaseSchema.plugin(auditFieldsPlugin);
 CaseSchema.plugin(auditLogPlugin, { collectionName: 'cases' });
 
-CaseSchema.index({ businessUnit: 1, status: 1, createdAt: -1 });
-CaseSchema.index({ businessUnit: 1, assignedTo: 1 });
-CaseSchema.index({ businessUnit: 1, clientId: 1 });
+CaseSchema.index({ tenantId: 1, businessUnit: 1, status: 1, createdAt: -1 });
+CaseSchema.index({ tenantId: 1, businessUnit: 1, assignedTo: 1 });
+CaseSchema.index({ tenantId: 1, businessUnit: 1, clientId: 1 });
+CaseSchema.index({ tenantId: 1, caseNumber: 1 }, { unique: true });
 CaseSchema.index({ caseNumber: 'text', title: 'text', description: 'text' });
 
 export type CaseDoc = InferSchemaType<typeof CaseSchema> & {
   _id: mongoose.Types.ObjectId;
+  // tenantScopePlugin adds this field dynamically via schema.add(); InferSchemaType
+  // doesn't see plugin-added fields, so we augment the type here.
+  tenantId: mongoose.Types.ObjectId;
 };
 
 export const Case: Model<CaseDoc> =
@@ -60,6 +67,7 @@ export function serializeCase(doc: Record<string, unknown>) {
 
   return {
     _id: String(doc._id),
+    tenantId: String(doc.tenantId),
     caseNumber: doc.caseNumber as string,
     title: doc.title as string,
     description: stringify(doc.description),

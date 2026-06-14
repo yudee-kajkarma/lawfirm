@@ -4,6 +4,7 @@ import { LEAD_SOURCES, LEAD_STAGES } from '../constants/enums';
 import { auditFieldsPlugin } from '../db/auditFieldsPlugin';
 import { auditLogPlugin } from '../db/auditLogPlugin';
 import { softDeletePlugin } from '../db/softDeletePlugin';
+import { tenantScopePlugin } from '../db/tenantScopePlugin';
 
 const LeadSchema = new Schema(
   {
@@ -40,20 +41,25 @@ const LeadSchema = new Schema(
   { timestamps: true },
 );
 
+// tenantScopePlugin FIRST — adds tenantId field before audit hooks reference it.
+LeadSchema.plugin(tenantScopePlugin);
 LeadSchema.plugin(softDeletePlugin);
 LeadSchema.plugin(auditFieldsPlugin);
 LeadSchema.plugin(auditLogPlugin, { collectionName: 'leads' });
 
-// Index for the most common list queries — by BU + stage + recency.
-LeadSchema.index({ businessUnit: 1, stage: 1, createdAt: -1 });
-LeadSchema.index({ businessUnit: 1, source: 1 });
-LeadSchema.index({ businessUnit: 1, assignedTo: 1, stage: 1 });
-LeadSchema.index({ businessUnit: 1, createdAt: -1 });
+// Tenant-first composite indexes for the most common list queries.
+LeadSchema.index({ tenantId: 1, businessUnit: 1, stage: 1, createdAt: -1 });
+LeadSchema.index({ tenantId: 1, businessUnit: 1, source: 1 });
+LeadSchema.index({ tenantId: 1, businessUnit: 1, assignedTo: 1, stage: 1 });
+LeadSchema.index({ tenantId: 1, businessUnit: 1, createdAt: -1 });
 LeadSchema.index({ email: 1 }, { sparse: true });
 LeadSchema.index({ firstName: 'text', lastName: 'text', email: 'text', companyName: 'text' });
 
 export type LeadDoc = InferSchemaType<typeof LeadSchema> & {
   _id: mongoose.Types.ObjectId;
+  // tenantScopePlugin adds this field dynamically via schema.add(); InferSchemaType
+  // doesn't see plugin-added fields, so we augment the type here.
+  tenantId: mongoose.Types.ObjectId;
 };
 
 export const Lead: Model<LeadDoc> =
@@ -68,6 +74,7 @@ export function serializeLead(doc: Record<string, unknown>) {
 
   return {
     _id: String(doc._id),
+    tenantId: String(doc.tenantId),
     firstName: doc.firstName as string,
     lastName: doc.lastName as string,
     email: stringify(doc.email),

@@ -12,7 +12,7 @@ export const runtime = 'nodejs';
 type Params = { id: string };
 
 export const POST = withAuth<Params>(
-  async (req, { params }) => {
+  async (req, { params }, { user }) => {
     await connectDb();
     if (!isValidObjectId(params.id)) {
       return apiError('NOT_FOUND', 'User not found', 404);
@@ -30,7 +30,10 @@ export const POST = withAuth<Params>(
       return apiError('VALIDATION_ERROR', 'Invalid password', 400, parsed.error.flatten());
     }
 
-    const target = await User.findById(params.id);
+    const target = await User.findOne({
+      _id: params.id,
+      tenantId: user.tenantId,
+    });
     if (!target) return apiError('NOT_FOUND', 'User not found', 404);
 
     target.passwordHash = await hashPassword(parsed.data.password);

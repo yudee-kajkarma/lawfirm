@@ -82,7 +82,7 @@ export const POST = withAuth(async (req, _ctx, { user }) => {
     return apiError('FORBIDDEN', 'No access to this business unit', 403);
   }
 
-  const created = await Lead.create(parsed.data);
+  const created = await Lead.create({ ...parsed.data, tenantId: user.tenantId });
   return apiOk(
     { data: serializeLead(created.toObject() as Record<string, unknown>) },
     201,

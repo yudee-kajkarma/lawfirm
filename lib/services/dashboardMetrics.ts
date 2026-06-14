@@ -8,7 +8,7 @@ import {
   type ContactType,
   type LeadStage,
 } from '../constants/enums';
-import { buAndSoftDeleteMatch } from '../db/withSoftDeleteMatch';
+import { tenantAggregate } from '../tenancy/tenantAggregate';
 import { Case } from '../models/Case';
 import { Contact } from '../models/Contact';
 import { Lead } from '../models/Lead';
@@ -38,8 +38,13 @@ export async function getDashboardMetrics(
   user: HydratedUser,
   requestedBU: string | null,
 ): Promise<DashboardMetrics> {
-  const buFilter = scopedQuery(user, requestedBU);
-  const baseMatch = buAndSoftDeleteMatch(buFilter);
+  const fullFilter = scopedQuery(user, requestedBU) as Record<string, unknown>;
+  // tenantAggregate prepends { tenantId, deletedAt: null } so strip tenantId to avoid
+  // doubling it in the pipeline $match.
+  const buOnlyFilter = Object.fromEntries(
+    Object.entries(fullFilter).filter(([k]) => k !== 'tenantId'),
+  );
+  const baseMatch = { $match: buOnlyFilter };
 
   // Parallel aggregations — 6 round-trips at once, no dependencies between them.
   const [
@@ -50,28 +55,22 @@ export async function getDashboardMetrics(
     pipelineValueAgg,
     caseValueAgg,
   ] = await Promise.all([
-    // eslint-disable-next-line no-restricted-syntax -- TODO(MT-1): migrate to tenantAggregate when tenantId reaches the user session
-    Lead.aggregate<AggBucket>([baseMatch, { $group: { _id: '$stage', count: { $sum: 1 } } }]),
-    // eslint-disable-next-line no-restricted-syntax -- TODO(MT-1): migrate to tenantAggregate when tenantId reaches the user session
-    Case.aggregate<AggBucket>([baseMatch, { $group: { _id: '$status', count: { $sum: 1 } } }]),
-    // eslint-disable-next-line no-restricted-syntax -- TODO(MT-1): migrate to tenantAggregate when tenantId reaches the user session
-    Contact.aggregate<AggBucket>([
+    tenantAggregate<AggBucket>(Lead, user, [baseMatch, { $group: { _id: '$stage', count: { $sum: 1 } } }]),
+    tenantAggregate<AggBucket>(Case, user, [baseMatch, { $group: { _id: '$status', count: { $sum: 1 } } }]),
+    tenantAggregate<AggBucket>(Contact, user, [
       baseMatch,
       { $group: { _id: '$contactType', count: { $sum: 1 } } },
     ]),
     // Conversion rate input — only the terminal stages matter.
-    // eslint-disable-next-line no-restricted-syntax -- TODO(MT-1): migrate to tenantAggregate when tenantId reaches the user session
-    Lead.aggregate<AggBucket>([
-      { $match: { ...buFilter, deletedAt: null, stage: { $in: TERMINAL_LEAD_STAGES } } },
+    tenantAggregate<AggBucket>(Lead, user, [
+      { $match: { ...buOnlyFilter, stage: { $in: TERMINAL_LEAD_STAGES } } },
       { $group: { _id: '$stage', count: { $sum: 1 } } },
     ]),
     // Pipeline value — non-terminal leads with a positive value.
-    // eslint-disable-next-line no-restricted-syntax -- TODO(MT-1): migrate to tenantAggregate when tenantId reaches the user session
-    Lead.aggregate<AggValue>([
+    tenantAggregate<AggValue>(Lead, user, [
       {
         $match: {
-          ...buFilter,
-          deletedAt: null,
+          ...buOnlyFilter,
           stage: { $nin: TERMINAL_LEAD_STAGES },
           value: { $gt: 0 },
         },
@@ -79,9 +78,8 @@ export async function getDashboardMetrics(
       { $group: { _id: null, total: { $sum: '$value' } } },
     ]),
     // Total case value — across all non-closed cases.
-    // eslint-disable-next-line no-restricted-syntax -- TODO(MT-1): migrate to tenantAggregate when tenantId reaches the user session
-    Case.aggregate<AggValue>([
-      { $match: { ...buFilter, deletedAt: null, status: { $ne: 'closed' }, value: { $gt: 0 } } },
+    tenantAggregate<AggValue>(Case, user, [
+      { $match: { ...buOnlyFilter, status: { $ne: 'closed' }, value: { $gt: 0 } } },
       { $group: { _id: null, total: { $sum: '$value' } } },
     ]),
   ]);

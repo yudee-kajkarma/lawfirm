@@ -58,9 +58,17 @@ export function auditLogPlugin(schema: Schema, options: AuditLogOptions): void {
   schema.pre('save', async function () {
     if (!this.isNew) {
       const Model = this.constructor as unknown as {
-        findById: (id: unknown) => { lean: () => Promise<Record<string, unknown> | null> };
+        findOne: (filter: Record<string, unknown>) => { lean: () => Promise<Record<string, unknown> | null> };
       };
-      const original = await Model.findById(this._id).lean();
+      // Include tenantId in the filter so tenantScopePlugin doesn't reject
+      // this internal lookup. The doc's own tenantId is always present here
+      // because save() runs after the field is populated.
+      const tenantFilter: Record<string, unknown> = { _id: this._id };
+      const docTenantId = (this as unknown as { tenantId?: unknown }).tenantId;
+      if (docTenantId !== undefined) {
+        tenantFilter.tenantId = docTenantId;
+      }
+      const original = await Model.findOne(tenantFilter).lean();
       (this as unknown as { $locals: Record<string, unknown> }).$locals.__auditOriginal = original;
     }
   });
@@ -105,10 +113,31 @@ export function auditLogPlugin(schema: Schema, options: AuditLogOptions): void {
         ? new Types.ObjectId(ctx.user._id)
         : null;
 
+    // Resolve tenantId — prefer the audited doc's own tenantId; fall back to the
+    // actor's tenantId from requestContext (used for Tenant model edits, whose
+    // doc has no tenantId of its own — the actor's tenant is the right scope).
+    const docTenant = (doc as unknown as { tenantId?: unknown }).tenantId;
+    const ctxTenant = ctx?.user?.tenantId;
+    const tenantId =
+      docTenant && Types.ObjectId.isValid(String(docTenant))
+        ? new Types.ObjectId(String(docTenant))
+        : ctxTenant && Types.ObjectId.isValid(ctxTenant)
+          ? new Types.ObjectId(ctxTenant)
+          : null;
+
+    // Skip audit entry if we can't resolve a tenant — AuditLog now requires
+    // tenantId (tenantScopePlugin makes it required). Null happens only for
+    // Tenant-model mutations (operator-console territory), which will get their
+    // own audit solution in Phase 2. The outer try/catch already prevents audit
+    // failures from breaking the main mutation, but it's cleaner to skip
+    // deliberately than to swallow a Mongoose validation error silently.
+    if (!tenantId) return;
+
     try {
       await AuditLog.create({
         collectionName,
         documentId: doc._id as Types.ObjectId,
+        tenantId,
         action,
         actorId,
         actorEmail: ctx?.user?.email ?? null,

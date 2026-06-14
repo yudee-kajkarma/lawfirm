@@ -82,6 +82,7 @@ export const POST = withAuth<Params>(async (req, { params }, { user }) => {
   const item = await CaseChecklist.create({
     caseId: new Types.ObjectId(params.id),
     businessUnit: parent.businessUnit,
+    tenantId: user.tenantId,
     ...parsed.data,
   });
 

@@ -4,6 +4,7 @@ import { POLY_RELATED_TYPES, TASK_PRIORITIES, TASK_STATUSES } from '../constants
 import { auditFieldsPlugin } from '../db/auditFieldsPlugin';
 import { auditLogPlugin } from '../db/auditLogPlugin';
 import { softDeletePlugin } from '../db/softDeletePlugin';
+import { tenantScopePlugin } from '../db/tenantScopePlugin';
 
 /**
  * Polymorphic attach-anywhere shape used by tasks, documents, threads,
@@ -49,21 +50,27 @@ const TaskSchema = new Schema(
   { timestamps: true },
 );
 
+// tenantScopePlugin FIRST — adds tenantId field before audit hooks reference it.
+TaskSchema.plugin(tenantScopePlugin);
 TaskSchema.plugin(softDeletePlugin);
 TaskSchema.plugin(auditFieldsPlugin);
 TaskSchema.plugin(auditLogPlugin, { collectionName: 'tasks' });
 
 // The canonical polymorphic-relation compound index from CLAUDE.md §3.5.
-// Powers `Task.find({ 'relatedTo.type': 'lead', 'relatedTo.id': leadId })`.
+// The relatedTo fields don't start with businessUnit, so we leave them as-is
+// (they are already filtered by tenantId via the query guard).
 TaskSchema.index({ 'relatedTo.type': 1, 'relatedTo.id': 1 });
 
-// Common list patterns.
-TaskSchema.index({ businessUnit: 1, status: 1, dueDate: 1 });
-TaskSchema.index({ businessUnit: 1, assignedTo: 1, status: 1 });
-TaskSchema.index({ businessUnit: 1, createdAt: -1 });
+// Tenant-first composite indexes for common list patterns.
+TaskSchema.index({ tenantId: 1, businessUnit: 1, status: 1, dueDate: 1 });
+TaskSchema.index({ tenantId: 1, businessUnit: 1, assignedTo: 1, status: 1 });
+TaskSchema.index({ tenantId: 1, businessUnit: 1, createdAt: -1 });
 
 export type TaskDoc = InferSchemaType<typeof TaskSchema> & {
   _id: mongoose.Types.ObjectId;
+  // tenantScopePlugin adds this field dynamically via schema.add(); InferSchemaType
+  // doesn't see plugin-added fields, so we augment the type here.
+  tenantId: mongoose.Types.ObjectId;
 };
 
 export const Task: Model<TaskDoc> =
@@ -80,6 +87,7 @@ export function serializeTask(doc: Record<string, unknown>) {
 
   return {
     _id: String(doc._id),
+    tenantId: String(doc.tenantId),
     title: doc.title as string,
     description: stringify(doc.description),
     status: doc.status as string,

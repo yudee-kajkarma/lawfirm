@@ -3,6 +3,7 @@ import mongoose, { Schema, type InferSchemaType, type Model } from 'mongoose';
 import { auditFieldsPlugin } from '../db/auditFieldsPlugin';
 import { auditLogPlugin } from '../db/auditLogPlugin';
 import { softDeletePlugin } from '../db/softDeletePlugin';
+import { tenantScopePlugin } from '../db/tenantScopePlugin';
 
 /**
  * One item per case. Kept in its own collection (vs. embedded in Case) so
@@ -28,14 +29,21 @@ const CaseChecklistSchema = new Schema(
   { timestamps: true },
 );
 
+// tenantScopePlugin FIRST — adds tenantId field before audit hooks reference it.
+CaseChecklistSchema.plugin(tenantScopePlugin);
 CaseChecklistSchema.plugin(softDeletePlugin);
 CaseChecklistSchema.plugin(auditFieldsPlugin);
 CaseChecklistSchema.plugin(auditLogPlugin, { collectionName: 'caseChecklists' });
 
-CaseChecklistSchema.index({ caseId: 1, order: 1 });
+// caseId is already tenant-scoped transitively (Case has tenantId), but we
+// still include tenantId in the leading position so the guard is satisfied.
+CaseChecklistSchema.index({ tenantId: 1, caseId: 1, order: 1 });
 
 export type CaseChecklistDoc = InferSchemaType<typeof CaseChecklistSchema> & {
   _id: mongoose.Types.ObjectId;
+  // tenantScopePlugin adds this field dynamically via schema.add(); InferSchemaType
+  // doesn't see plugin-added fields, so we augment the type here.
+  tenantId: mongoose.Types.ObjectId;
 };
 
 export const CaseChecklist: Model<CaseChecklistDoc> =

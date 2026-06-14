@@ -60,9 +60,12 @@ async function main(): Promise<void> {
   await connectDb();
   log('connect', `connected to ${mongoose.connection.name}`);
 
+  const testTenantId = new Types.ObjectId();
+
   const fakeUser = {
     _id: new Types.ObjectId().toString(),
     email: 'tester@example.com',
+    tenantId: testTenantId.toString(),
     isAdmin: true,
     businessUnits: ['immigration', 'law', 'wealth'],
   };
@@ -95,7 +98,10 @@ async function main(): Promise<void> {
     log('filter', '`withDeleted: true` reveals soft-deleted doc ✓');
 
     // 5. Verify audit entries
-    const entries = await AuditLog.find({ documentId: doc._id }).sort({ createdAt: 1 });
+    const entries = await AuditLog.find({
+      tenantId: testTenantId,
+      documentId: doc._id,
+    }).sort({ createdAt: 1 });
     log('audit', `found ${entries.length} entries (expected 3)`);
     if (entries.length !== 3) {
       fail('audit', `expected 3 audit entries, got ${entries.length}`);
@@ -130,7 +136,7 @@ async function main(): Promise<void> {
 
     // 6. Cleanup
     await FooTest.deleteOne({ _id: doc._id }).setOptions({ withDeleted: true });
-    await AuditLog.deleteMany({ documentId: doc._id });
+    await AuditLog.deleteMany({ tenantId: testTenantId, documentId: doc._id });
     log('cleanup', 'removed test doc + audit entries');
   });
 

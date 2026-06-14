@@ -11,12 +11,15 @@ export const runtime = 'nodejs';
 type Params = { id: string };
 
 export const GET = withAuth<Params>(
-  async (_req, { params }) => {
+  async (_req, { params }, { user }) => {
     await connectDb();
     if (!isValidObjectId(params.id)) {
       return apiError('NOT_FOUND', 'User not found', 404);
     }
-    const doc = await User.findById(params.id).lean();
+    const doc = await User.findOne({
+      _id: params.id,
+      tenantId: user.tenantId,
+    }).lean();
     if (!doc) return apiError('NOT_FOUND', 'User not found', 404);
     return apiOk({ data: serializeUser(doc as Record<string, unknown>) });
   },
@@ -42,7 +45,10 @@ export const PATCH = withAuth<Params>(
       return apiError('VALIDATION_ERROR', 'Invalid user data', 400, parsed.error.flatten());
     }
 
-    const target = await User.findById(params.id);
+    const target = await User.findOne({
+      _id: params.id,
+      tenantId: actor.tenantId,
+    });
     if (!target) return apiError('NOT_FOUND', 'User not found', 404);
 
     const isSelf = target._id.toString() === actor._id;
@@ -72,7 +78,7 @@ export const PATCH = withAuth<Params>(
       const clash = await User.findOne({
         email: parsed.data.email,
         _id: { $ne: target._id },
-      }).setOptions({ withDeleted: true });
+      }).setOptions({ withDeleted: true, __crossTenant: true });
       if (clash) {
         return apiError('CONFLICT', 'A user with this email already exists', 409);
       }

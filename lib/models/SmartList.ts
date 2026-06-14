@@ -3,6 +3,7 @@ import mongoose, { Schema, type InferSchemaType, type Model } from 'mongoose';
 import { auditFieldsPlugin } from '../db/auditFieldsPlugin';
 import { auditLogPlugin } from '../db/auditLogPlugin';
 import { softDeletePlugin } from '../db/softDeletePlugin';
+import { tenantScopePlugin } from '../db/tenantScopePlugin';
 import { SMART_LIST_ENTITIES } from '../utils/smartListFields';
 
 const SmartListSchema = new Schema(
@@ -25,14 +26,19 @@ const SmartListSchema = new Schema(
   { timestamps: true },
 );
 
+// tenantScopePlugin FIRST — adds tenantId field before audit hooks reference it.
+SmartListSchema.plugin(tenantScopePlugin);
 SmartListSchema.plugin(softDeletePlugin);
 SmartListSchema.plugin(auditFieldsPlugin);
 SmartListSchema.plugin(auditLogPlugin, { collectionName: 'smartLists' });
 
-SmartListSchema.index({ businessUnit: 1, entity: 1, createdAt: -1 });
+SmartListSchema.index({ tenantId: 1, businessUnit: 1, entity: 1, createdAt: -1 });
 
 export type SmartListDoc = InferSchemaType<typeof SmartListSchema> & {
   _id: mongoose.Types.ObjectId;
+  // tenantScopePlugin adds this field dynamically via schema.add(); InferSchemaType
+  // doesn't see plugin-added fields, so we augment the type here.
+  tenantId: mongoose.Types.ObjectId;
 };
 
 export const SmartList: Model<SmartListDoc> =
@@ -45,6 +51,7 @@ export function serializeSmartList(doc: Record<string, unknown>) {
     v instanceof Date ? v.toISOString() : String(v);
   return {
     _id: String(doc._id),
+    tenantId: String(doc.tenantId),
     name: doc.name as string,
     description: stringify(doc.description),
     entity: doc.entity as string,

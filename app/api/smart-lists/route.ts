@@ -64,7 +64,7 @@ export const POST = withAuth(async (req, _ctx, { user }) => {
     throw err;
   }
 
-  const created = await SmartList.create(parsed.data);
+  const created = await SmartList.create({ ...parsed.data, tenantId: user.tenantId });
   return apiOk(
     { data: serializeSmartList(created.toObject() as Record<string, unknown>) },
     201,

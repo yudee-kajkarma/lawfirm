@@ -22,7 +22,7 @@ function parseIsoDate(value: string | null): Date | null {
 }
 
 export const GET = withAuth(
-  async (req) => {
+  async (req, _ctx, { user }) => {
     await connectDb();
     const sp = req.nextUrl.searchParams;
 
@@ -31,7 +31,9 @@ export const GET = withAuth(
       Math.max(1, Number(sp.get('limit')) || DEFAULT_LIMIT),
     );
 
-    const filter: Record<string, unknown> = {};
+    // Always scope to the admin's own tenant — admins only see audit logs for
+    // their tenant, never across all tenants.
+    const filter: Record<string, unknown> = { tenantId: new Types.ObjectId(user.tenantId) };
 
     const collectionName = sp.get('collectionName');
     if (collectionName) filter.collectionName = collectionName;

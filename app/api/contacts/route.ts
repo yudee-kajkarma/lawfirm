@@ -82,7 +82,7 @@ export const POST = withAuth(async (req, _ctx, { user }) => {
     return apiError('FORBIDDEN', 'No access to this business unit', 403);
   }
 
-  const created = await Contact.create(parsed.data);
+  const created = await Contact.create({ ...parsed.data, tenantId: user.tenantId });
   // Belt-and-suspenders — if id somehow comes back malformed, fail loud.
   if (!isValidObjectId(created._id)) {
     return apiError('INTERNAL_ERROR', 'Created contact has invalid id', 500);

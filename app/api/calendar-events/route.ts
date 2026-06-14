@@ -70,7 +70,7 @@ export const POST = withAuth(async (req, _ctx, { user }) => {
     return apiError('FORBIDDEN', 'No access to this business unit', 403);
   }
 
-  const created = await CalendarEvent.create(parsed.data);
+  const created = await CalendarEvent.create({ ...parsed.data, tenantId: user.tenantId });
   return apiOk(
     { data: serializeCalendarEvent(created.toObject() as Record<string, unknown>) },
     201,

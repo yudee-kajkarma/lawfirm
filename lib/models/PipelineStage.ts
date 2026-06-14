@@ -3,6 +3,7 @@ import mongoose, { Schema, type InferSchemaType, type Model } from 'mongoose';
 import { auditFieldsPlugin } from '../db/auditFieldsPlugin';
 import { auditLogPlugin } from '../db/auditLogPlugin';
 import { softDeletePlugin } from '../db/softDeletePlugin';
+import { tenantScopePlugin } from '../db/tenantScopePlugin';
 
 /**
  * Admin-configurable Kanban columns per BU. Wired up in Phase 5 (pipeline
@@ -28,15 +29,21 @@ const PipelineStageSchema = new Schema(
   { timestamps: true },
 );
 
+// tenantScopePlugin FIRST — adds tenantId field before audit hooks reference it.
+PipelineStageSchema.plugin(tenantScopePlugin);
 PipelineStageSchema.plugin(softDeletePlugin);
 PipelineStageSchema.plugin(auditFieldsPlugin);
 PipelineStageSchema.plugin(auditLogPlugin, { collectionName: 'pipelineStages' });
 
-PipelineStageSchema.index({ businessUnit: 1, key: 1 }, { unique: true });
-PipelineStageSchema.index({ businessUnit: 1, order: 1 });
+// Per-tenant BU+key uniqueness: same key ('new_inquiry') can exist across tenants.
+PipelineStageSchema.index({ tenantId: 1, businessUnit: 1, key: 1 }, { unique: true });
+PipelineStageSchema.index({ tenantId: 1, businessUnit: 1, order: 1 });
 
 export type PipelineStageDoc = InferSchemaType<typeof PipelineStageSchema> & {
   _id: mongoose.Types.ObjectId;
+  // tenantScopePlugin adds this field dynamically via schema.add(); InferSchemaType
+  // doesn't see plugin-added fields, so we augment the type here.
+  tenantId: mongoose.Types.ObjectId;
 };
 
 export const PipelineStage: Model<PipelineStageDoc> =

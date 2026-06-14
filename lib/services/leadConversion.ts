@@ -82,6 +82,7 @@ export async function convertLead(args: ConvertLeadArgs): Promise<ConvertLeadRes
               jobTitle: lead.jobTitle,
               contactType: 'client',
               businessUnit: lead.businessUnit,
+              tenantId: lead.tenantId,
             },
           ],
           { session },
@@ -91,7 +92,11 @@ export async function convertLead(args: ConvertLeadArgs): Promise<ConvertLeadRes
 
       // 2. Case — number is atomic-incremented inside the txn so rollbacks
       //    roll the counter back too.
-      const caseNumber = await generateCaseNumber(lead.businessUnit, session);
+      const caseNumber = await generateCaseNumber(
+        lead.tenantId.toString(),
+        lead.businessUnit,
+        session,
+      );
       const assignedTo =
         args.assignedTo && Types.ObjectId.isValid(args.assignedTo)
           ? new Types.ObjectId(args.assignedTo)
@@ -106,6 +111,7 @@ export async function convertLead(args: ConvertLeadArgs): Promise<ConvertLeadRes
             value: args.caseValue ?? null,
             tags: args.caseTags ?? [],
             businessUnit: lead.businessUnit,
+            tenantId: lead.tenantId,
             clientId: contact._id,
             assignedTo,
             convertedFromLead: lead._id,

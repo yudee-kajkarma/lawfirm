@@ -12,12 +12,14 @@ export const runtime = 'nodejs';
 type Params = { id: string };
 
 export const GET = withAuth<Params>(
-  async (_req, { params }) => {
+  async (_req, { params }, { user }) => {
     await connectDb();
     if (!isValidObjectId(params.id)) {
       return apiError('NOT_FOUND', 'Business unit not found', 404);
     }
-    const doc = await BusinessUnit.findById(params.id).lean();
+    // Combine _id with tenantId — returns 404 for another tenant's doc rather
+    // than 403 to avoid leaking that the ID exists at all.
+    const doc = await BusinessUnit.findOne({ _id: params.id, tenantId: user.tenantId }).lean();
     if (!doc) return apiError('NOT_FOUND', 'Business unit not found', 404);
     return apiOk({ data: serializeBusinessUnit(doc as Record<string, unknown>) });
   },
@@ -25,7 +27,7 @@ export const GET = withAuth<Params>(
 );
 
 export const PATCH = withAuth<Params>(
-  async (req, { params }) => {
+  async (req, { params }, { user }) => {
     await connectDb();
     if (!isValidObjectId(params.id)) {
       return apiError('NOT_FOUND', 'Business unit not found', 404);
@@ -48,15 +50,19 @@ export const PATCH = withAuth<Params>(
       );
     }
 
-    const target = await BusinessUnit.findById(params.id);
+    // Combine _id with tenantId — returns 404 for another tenant's doc.
+    const target = await BusinessUnit.findOne({ _id: params.id, tenantId: user.tenantId });
     if (!target) return apiError('NOT_FOUND', 'Business unit not found', 404);
 
     const force = req.nextUrl.searchParams.get('force') === 'true';
     const isBeingDeactivated = parsed.data.isActive === false && target.isActive;
 
     if (isBeingDeactivated) {
-      // Always-on guard: never allow zero active BUs.
-      const activeCount = await BusinessUnit.countDocuments({ isActive: true });
+      // Always-on guard: never allow zero active BUs within this tenant.
+      const activeCount = await BusinessUnit.countDocuments({
+        tenantId: user.tenantId,
+        isActive: true,
+      });
       if (activeCount <= 1) {
         return apiError(
           'CONFLICT',
@@ -65,10 +71,11 @@ export const PATCH = withAuth<Params>(
         );
       }
 
-      // Soft guard: surface non-admin users who'd lose all UI access. Admin
-      // can proceed by re-sending with ?force=true after confirming.
+      // Soft guard: surface non-admin users within this tenant who'd lose all
+      // UI access. Admin can proceed by re-sending with ?force=true.
       if (!force) {
         const orphaned = await User.find({
+          tenantId: user.tenantId,
           isAdmin: false,
           isActive: true,
           businessUnits: [target.key],

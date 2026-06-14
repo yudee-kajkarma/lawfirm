@@ -1,13 +1,19 @@
 import mongoose, { Schema, type InferSchemaType, type Model } from 'mongoose';
 
 import { AUDIT_ACTIONS, AUDIT_SOURCES } from '../constants/enums';
+import { tenantScopePlugin } from '../db/tenantScopePlugin';
 
-// Deliberately no plugins on this collection:
+// Deliberately no softDelete/auditFields/auditLog plugins on this collection:
 // - softDelete: audit entries must not be soft-deletable
 // - auditFields/auditLog: the entries ARE the audit trail; recursion would be silly
+// tenantScopePlugin is applied so cross-tenant leaks are impossible even for
+// the audit viewer endpoint.
 
 const AuditLogSchema = new Schema(
   {
+    // `tenantId` is injected by tenantScopePlugin (and stamped by auditLogPlugin
+    // on every mutation). The Task 1 stub field has been removed; the plugin owns
+    // the declaration so the two don't conflict.
     collectionName: { type: String, required: true, index: true },
     documentId: { type: Schema.Types.ObjectId, required: true, index: true },
     action: { type: String, enum: AUDIT_ACTIONS, required: true },
@@ -29,18 +35,25 @@ const AuditLogSchema = new Schema(
   { timestamps: true },
 );
 
-// Retention via TTL — defaults to 180 days, overridable through env.
+// tenantScopePlugin only — no softDelete, no audit recursion.
+AuditLogSchema.plugin(tenantScopePlugin);
+
+// Retention via TTL — single-key on a Date field, as TTL index requires.
+// Do NOT prepend tenantId here; MongoDB TTL indexes must be single-field.
 const TTL_SECONDS = Number(process.env.AUDIT_LOG_TTL_SECONDS) || 60 * 60 * 24 * 180;
 AuditLogSchema.index({ createdAt: 1 }, { expireAfterSeconds: TTL_SECONDS });
 
-// Composite indexes for the common access patterns.
-AuditLogSchema.index({ documentId: 1, createdAt: -1 });
-AuditLogSchema.index({ actorId: 1, createdAt: -1 });
-AuditLogSchema.index({ collectionName: 1, createdAt: -1 });
-AuditLogSchema.index({ businessUnit: 1, createdAt: -1 });
+// Tenant-first composite indexes for the common audit viewer access patterns.
+AuditLogSchema.index({ tenantId: 1, documentId: 1, createdAt: -1 });
+AuditLogSchema.index({ tenantId: 1, actorId: 1, createdAt: -1 });
+AuditLogSchema.index({ tenantId: 1, collectionName: 1, createdAt: -1 });
+AuditLogSchema.index({ tenantId: 1, businessUnit: 1, createdAt: -1 });
 
 export type AuditLogDoc = InferSchemaType<typeof AuditLogSchema> & {
   _id: mongoose.Types.ObjectId;
+  // tenantScopePlugin adds this field dynamically via schema.add(); InferSchemaType
+  // doesn't see plugin-added fields, so we augment the type here.
+  tenantId: mongoose.Types.ObjectId;
 };
 
 export const AuditLog: Model<AuditLogDoc> =
@@ -49,6 +62,7 @@ export const AuditLog: Model<AuditLogDoc> =
 
 export function serializeAuditLog(doc: Record<string, unknown>): {
   _id: string;
+  tenantId: string;
   collectionName: string;
   documentId: string;
   action: string;
@@ -65,6 +79,7 @@ export function serializeAuditLog(doc: Record<string, unknown>): {
     v instanceof Date ? v.toISOString() : String(v);
   return {
     _id: String(doc._id),
+    tenantId: String(doc.tenantId),
     collectionName: String(doc.collectionName ?? ''),
     documentId: String(doc.documentId ?? ''),
     action: String(doc.action ?? ''),

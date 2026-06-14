@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import { redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
 
@@ -14,8 +15,17 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   // Middleware should already have caught this — defence in depth.
   if (!session?.user) redirect('/login');
 
+  // A missing tenantId means the JWT was issued before MT-1 (the session
+  // predates multi-tenancy). Force re-login so a fresh JWT is minted.
+  if (!session.user.tenantId) redirect('/login');
+
   await connectDb();
-  const all = await BusinessUnit.find({ isActive: true }).sort({ order: 1 }).lean();
+  const all = await BusinessUnit.find({
+    tenantId: new mongoose.Types.ObjectId(session.user.tenantId),
+    isActive: true,
+  })
+    .sort({ order: 1 })
+    .lean();
 
   // Strip ObjectIds so the props are serializable across the server→client boundary.
   const accessible = all

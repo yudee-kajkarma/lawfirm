@@ -4,6 +4,7 @@ import { INVOICE_STATUSES } from '../constants/enums';
 import { auditFieldsPlugin } from '../db/auditFieldsPlugin';
 import { auditLogPlugin } from '../db/auditLogPlugin';
 import { softDeletePlugin } from '../db/softDeletePlugin';
+import { tenantScopePlugin } from '../db/tenantScopePlugin';
 
 const LineItemSchema = new Schema(
   {
@@ -28,7 +29,7 @@ const ClientSnapshotSchema = new Schema(
 
 const InvoiceSchema = new Schema(
   {
-    invoiceNumber: { type: String, required: true, unique: true },
+    invoiceNumber: { type: String, required: true },
     title: { type: String, default: null, trim: true, maxlength: 200 },
 
     businessUnit: { type: String, required: true, index: true },
@@ -79,17 +80,23 @@ const InvoiceSchema = new Schema(
   { timestamps: true },
 );
 
+// tenantScopePlugin FIRST — adds tenantId field before audit hooks reference it.
+InvoiceSchema.plugin(tenantScopePlugin);
 InvoiceSchema.plugin(softDeletePlugin);
 InvoiceSchema.plugin(auditFieldsPlugin);
 InvoiceSchema.plugin(auditLogPlugin, { collectionName: 'invoices' });
 
-InvoiceSchema.index({ businessUnit: 1, status: 1, dueDate: 1 });
-InvoiceSchema.index({ businessUnit: 1, clientId: 1 });
-InvoiceSchema.index({ businessUnit: 1, caseId: 1 });
+InvoiceSchema.index({ tenantId: 1, businessUnit: 1, status: 1, dueDate: 1 });
+InvoiceSchema.index({ tenantId: 1, businessUnit: 1, clientId: 1 });
+InvoiceSchema.index({ tenantId: 1, businessUnit: 1, caseId: 1 });
+InvoiceSchema.index({ tenantId: 1, invoiceNumber: 1 }, { unique: true });
 InvoiceSchema.index({ invoiceNumber: 'text', title: 'text' });
 
 export type InvoiceDoc = InferSchemaType<typeof InvoiceSchema> & {
   _id: mongoose.Types.ObjectId;
+  // tenantScopePlugin adds this field dynamically via schema.add(); InferSchemaType
+  // doesn't see plugin-added fields, so we augment the type here.
+  tenantId: mongoose.Types.ObjectId;
 };
 
 export const Invoice: Model<InvoiceDoc> =
@@ -125,6 +132,7 @@ export function serializeInvoice(doc: Record<string, unknown>) {
 
   return {
     _id: String(doc._id),
+    tenantId: String(doc.tenantId),
     invoiceNumber: doc.invoiceNumber as string,
     title: stringify(doc.title),
     businessUnit: doc.businessUnit as string,

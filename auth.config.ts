@@ -22,6 +22,7 @@ const authConfig: NextAuthConfig = {
       // `user` is only populated on first sign-in (right after authorize).
       if (user) {
         token.isAdmin = Boolean(user.isAdmin);
+        token.tenantId = typeof user.tenantId === 'string' ? user.tenantId : '';
         // Defensive spread — even if authorize returns a non-plain array, this
         // normalizes to one so structuredClone in jose's JWT encode succeeds.
         token.businessUnits = Array.isArray(user.businessUnits) ? [...user.businessUnits] : [];
@@ -33,6 +34,7 @@ const authConfig: NextAuthConfig = {
     session({ session, token }) {
       if (token.sub) session.user.id = token.sub;
       session.user.isAdmin = Boolean(token.isAdmin);
+      session.user.tenantId = typeof token.tenantId === 'string' ? token.tenantId : '';
       session.user.businessUnits = Array.isArray(token.businessUnits)
         ? (token.businessUnits as string[])
         : [];

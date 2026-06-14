@@ -87,8 +87,12 @@ export const POST = withAuth(async (req, _ctx, { user }) => {
   // Non-transactional path — direct case create gets a number from the
   // atomic counter but without rollback guarantees. The lead-conversion
   // route uses the same counter inside a transaction.
-  const caseNumber = await generateCaseNumber(parsed.data.businessUnit);
-  const created = await Case.create({ ...parsed.data, caseNumber });
+  const caseNumber = await generateCaseNumber(user.tenantId, parsed.data.businessUnit);
+  const created = await Case.create({
+    ...parsed.data,
+    caseNumber,
+    tenantId: user.tenantId,
+  });
 
   return apiOk({ data: serializeCase(created.toObject() as Record<string, unknown>) }, 201);
 });

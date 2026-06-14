@@ -13,12 +13,14 @@ function escapeRegex(input: string): string {
 }
 
 export const GET = withAuth(
-  async (req) => {
+  async (req, _ctx, { user }) => {
     await connectDb();
     const list = parseListQuery(req);
     const sp = req.nextUrl.searchParams;
 
-    const filter: Record<string, unknown> = {};
+    const filter: Record<string, unknown> = {
+      tenantId: user.tenantId,
+    };
 
     const isActive = sp.get('isActive');
     if (isActive === 'active') filter.isActive = true;
@@ -53,7 +55,7 @@ export const GET = withAuth(
 );
 
 export const POST = withAuth(
-  async (req) => {
+  async (req, _ctx, { user }) => {
     await connectDb();
 
     let body: unknown;
@@ -70,6 +72,7 @@ export const POST = withAuth(
 
     const existing = await User.findOne({ email: parsed.data.email }).setOptions({
       withDeleted: true,
+      __crossTenant: true,
     });
     if (existing) {
       return apiError('CONFLICT', 'A user with this email already exists', 409);
@@ -83,6 +86,7 @@ export const POST = withAuth(
       isAdmin: parsed.data.isAdmin,
       businessUnits: parsed.data.businessUnits,
       isActive: parsed.data.isActive,
+      tenantId: user.tenantId,
     });
 
     return apiOk(

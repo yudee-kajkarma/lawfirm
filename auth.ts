@@ -25,18 +25,30 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         if (!parsed.success) return null;
 
         await connectDb();
-        const userDoc = await User.findOne({ email: parsed.data.email.toLowerCase() }).select(
-          '+passwordHash',
-        );
+        // Login is intentionally a cross-tenant lookup: email is globally unique
+        // across User (soft-enforced at signup, spec §5.4) so a single email
+        // resolves to exactly one tenant. Without __crossTenant the new
+        // tenantScopePlugin would throw because the query has no tenantId yet.
+        const userDoc = await User.findOne({ email: parsed.data.email.toLowerCase() })
+          .setOptions({ __crossTenant: true })
+          .select('+passwordHash');
         if (!userDoc || !userDoc.isActive) return null;
 
         const ok = await verifyPassword(parsed.data.password, userDoc.passwordHash);
         if (!ok) return null;
 
-        // Bump last-login. Use findByIdAndUpdate (not .save()) so we skip both
+        // A user without tenantId means the seed/migration missed this record.
+        // Refuse login rather than letting them into an unscoped session.
+        if (!userDoc.tenantId) return null;
+
+        // Bump last-login. Use updateOne (not .save()) so we skip both
         // audit-log entries and the audit-fields `updatedBy` hook — this isn't
-        // a user-driven mutation worth tracking.
-        await User.findByIdAndUpdate(userDoc._id, { lastLoginAt: new Date() });
+        // a user-driven mutation worth tracking. Filter includes tenantId so
+        // tenantScopePlugin is satisfied.
+        await User.updateOne(
+          { _id: userDoc._id, tenantId: userDoc.tenantId },
+          { lastLoginAt: new Date() },
+        );
 
         // Plain JS primitives only — Auth.js v5 runs `structuredClone` on the
         // JWT payload and Mongoose's array/document classes throw DataCloneError.
@@ -45,6 +57,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           email: String(userDoc.email),
           name: String(userDoc.name),
           isAdmin: Boolean(userDoc.isAdmin),
+          tenantId: String(userDoc.tenantId),
           businessUnits: [...userDoc.businessUnits],
         };
       },

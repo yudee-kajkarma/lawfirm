@@ -4,6 +4,7 @@ import { POLY_RELATED_TYPES } from '../constants/enums';
 import { auditFieldsPlugin } from '../db/auditFieldsPlugin';
 import { auditLogPlugin } from '../db/auditLogPlugin';
 import { softDeletePlugin } from '../db/softDeletePlugin';
+import { tenantScopePlugin } from '../db/tenantScopePlugin';
 
 const RelatedToSchema = new Schema(
   {
@@ -36,16 +37,22 @@ const DocumentSchema = new Schema(
   { timestamps: true },
 );
 
+// tenantScopePlugin FIRST — adds tenantId field before audit hooks reference it.
+DocumentSchema.plugin(tenantScopePlugin);
 DocumentSchema.plugin(softDeletePlugin);
 DocumentSchema.plugin(auditFieldsPlugin);
 DocumentSchema.plugin(auditLogPlugin, { collectionName: 'documents' });
 
+// Polymorphic relation index — does not start with businessUnit, left as-is.
 DocumentSchema.index({ 'relatedTo.type': 1, 'relatedTo.id': 1 });
-DocumentSchema.index({ businessUnit: 1, createdAt: -1 });
+DocumentSchema.index({ tenantId: 1, businessUnit: 1, createdAt: -1 });
 DocumentSchema.index({ filename: 'text', description: 'text' });
 
 export type DocumentDoc = InferSchemaType<typeof DocumentSchema> & {
   _id: mongoose.Types.ObjectId;
+  // tenantScopePlugin adds this field dynamically via schema.add(); InferSchemaType
+  // doesn't see plugin-added fields, so we augment the type here.
+  tenantId: mongoose.Types.ObjectId;
 };
 
 export const DocumentModel: Model<DocumentDoc> =
@@ -61,6 +68,7 @@ export function serializeDocument(doc: Record<string, unknown>) {
 
   return {
     _id: String(doc._id),
+    tenantId: String(doc.tenantId),
     filename: doc.filename as string,
     contentType: doc.contentType as string,
     size: doc.size as number,
