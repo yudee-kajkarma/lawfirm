@@ -18,11 +18,17 @@ import { Label } from '@/components/ui/label';
 
 type Props = {
   action: (formData: FormData) => Promise<void>;
-  callbackUrl: string;
-  hasError: boolean;
+  error: string | null;
 };
 
-export function LoginForm({ action, callbackUrl, hasError }: Props) {
+const ERROR_MESSAGES: Record<string, string> = {
+  EmailTaken: 'That email is already in use.',
+  Validation: 'Please check your details and try again.',
+  RateLimited: 'Too many signup attempts. Try again later.',
+  Server: 'Something went wrong. Please try again.',
+};
+
+export function SignupForm({ action, error }: Props) {
   return (
     <main className="flex min-h-screen items-center justify-center bg-gradient-to-b from-background to-secondary/40 p-4">
       <motion.div
@@ -43,31 +49,31 @@ export function LoginForm({ action, callbackUrl, hasError }: Props) {
 
         <Card className="shadow-sm">
           <CardHeader className="space-y-1">
-            <CardTitle className="text-xl">Welcome back</CardTitle>
-            <CardDescription>Sign in to your workspace to continue.</CardDescription>
+            <CardTitle className="text-xl">Create your workspace</CardTitle>
+            <CardDescription>One firm, one workspace. Set up takes 30 seconds.</CardDescription>
           </CardHeader>
           <CardContent>
-            {hasError && (
+            {error && ERROR_MESSAGES[error] && (
               <motion.div
                 initial={{ opacity: 0, y: -4 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="mb-4 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive"
               >
-                Invalid email or password.
+                {ERROR_MESSAGES[error]}
               </motion.div>
             )}
             <form action={action} className="space-y-4">
-              <input type="hidden" name="callbackUrl" value={callbackUrl} />
               <div className="space-y-1.5">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  name="email"
-                  type="email"
-                  required
-                  autoComplete="email"
-                  placeholder="you@example.com"
-                />
+                <Label htmlFor="companyName">Firm name</Label>
+                <Input id="companyName" name="companyName" required autoFocus placeholder="Smith &amp; Co." />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="ownerName">Your name</Label>
+                <Input id="ownerName" name="ownerName" required placeholder="Alice Smith" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="ownerEmail">Email</Label>
+                <Input id="ownerEmail" name="ownerEmail" type="email" required autoComplete="email" placeholder="you@firm.com" />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="password">Password</Label>
@@ -76,17 +82,18 @@ export function LoginForm({ action, callbackUrl, hasError }: Props) {
                   name="password"
                   type="password"
                   required
-                  autoComplete="current-password"
-                  placeholder="••••••••"
+                  autoComplete="new-password"
+                  minLength={8}
+                  placeholder="At least 8 characters"
                 />
               </div>
               <SubmitButton />
             </form>
           </CardContent>
           <CardFooter className="flex justify-center border-t bg-muted/30 py-3 text-xs text-muted-foreground">
-            Need an account?&nbsp;
-            <Link href="/signup" className="underline-offset-4 hover:underline">
-              Create a workspace
+            Already have an account?&nbsp;
+            <Link href="/login" className="underline-offset-4 hover:underline">
+              Sign in
             </Link>
           </CardFooter>
         </Card>
@@ -95,14 +102,11 @@ export function LoginForm({ action, callbackUrl, hasError }: Props) {
   );
 }
 
-// Server actions don't give us a `pending` flag on the form prop, so we read
-// it inside a child component via useFormStatus. Has to be a separate
-// component — the hook only returns true while a sibling form is submitting.
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
     <Button type="submit" className="w-full" disabled={pending}>
-      {pending ? 'Signing in…' : 'Sign in'}
+      {pending ? 'Creating workspace…' : 'Create workspace'}
     </Button>
   );
 }

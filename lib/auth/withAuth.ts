@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server';
 import { auth } from '@/auth';
 
 import { connectDb } from '../db/connect';
+import { Tenant } from '../models/Tenant';
 import { User } from '../models/User';
 import { apiError } from '../utils/apiResponse';
 import { AppError } from '../utils/errors';
@@ -60,6 +61,13 @@ export function withAuth<TParams = Record<string, string | string[]>>(
         // Should be impossible post-MT-1 because tenantId is required on the User
         // schema. If this ever fires it means the seed/migration missed a user.
         return apiError('UNAUTHORIZED', 'User has no tenant', 401);
+      }
+
+      // Mid-session kill-switch. If a tenant was suspended after the JWT was
+      // issued, this is where the user gets bounced out of the API.
+      const tenantDoc = await Tenant.findById(userDoc.tenantId).lean();
+      if (!tenantDoc || tenantDoc.status !== 'active') {
+        return apiError('TENANT_SUSPENDED', "Your firm's account is suspended", 403);
       }
 
       if (options.adminOnly && !userDoc.isAdmin) {

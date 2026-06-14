@@ -19,7 +19,11 @@ export default auth((req) => {
   const isAuthed = !!req.auth;
   const isAdmin = req.auth?.user?.isAdmin === true;
 
-  const isPublic = pathname === '/' || pathname === '/login';
+  const isPublic =
+    pathname === '/' ||
+    pathname === '/login' ||
+    pathname === '/signup' ||
+    pathname === '/suspended';
 
   if (!isAuthed && !isPublic) {
     const url = new URL('/login', req.url);
@@ -27,7 +31,8 @@ export default auth((req) => {
     return NextResponse.redirect(url);
   }
 
-  if (isAuthed && pathname === '/login') {
+  // Authed users have no business on the auth pages.
+  if (isAuthed && (pathname === '/login' || pathname === '/signup')) {
     return NextResponse.redirect(new URL('/dashboard', req.url));
   }
 

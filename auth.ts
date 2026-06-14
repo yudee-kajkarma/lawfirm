@@ -5,6 +5,7 @@ import { z } from 'zod';
 import authConfig from './auth.config';
 import { verifyPassword } from '@/lib/auth/password';
 import { connectDb } from '@/lib/db/connect';
+import { Tenant } from '@/lib/models/Tenant';
 import { User } from '@/lib/models/User';
 
 const credentialsSchema = z.object({
@@ -40,6 +41,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         // A user without tenantId means the seed/migration missed this record.
         // Refuse login rather than letting them into an unscoped session.
         if (!userDoc.tenantId) return null;
+
+        // Spec §5.2: refuse sign-in if tenant is anything other than active.
+        // suspended → "Your firm's account is suspended"; pending_purge / purging
+        // → same message (operator console can show finer grain later).
+        const tenantDoc = await Tenant.findById(userDoc.tenantId).lean();
+        if (!tenantDoc || tenantDoc.status !== 'active') {
+          return null;
+        }
 
         // Bump last-login. Use updateOne (not .save()) so we skip both
         // audit-log entries and the audit-fields `updatedBy` hook — this isn't

@@ -16,6 +16,7 @@
     "test:smart-list": "tsx --env-file=.env.local scripts/test-smart-list.ts",
     "test:tenant-scope": "tsx --env-file=.env.local scripts/test-tenant-scope.ts",
     "test:multitenancy": "tsx scripts/test-multitenancy-invariants.ts",
+    "test:tenant-signup": "tsx --env-file=.env.local scripts/test-tenant-signup.ts",
     "seed": "tsx --env-file=.env.local scripts/seed.ts",
     "seed:reset": "tsx --env-file=.env.local scripts/seed.ts --reset"
   },
