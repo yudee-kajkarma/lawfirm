@@ -15,6 +15,9 @@ import { TENANT_SCOPE_PLUGIN_SYMBOL } from '../tenancy/tenantSymbol';
  *
  * Aggregations bypass middleware — use `tenantAggregate()` instead of
  * `Model.aggregate(...)`. The eslint rule in `eslint.config.mjs` enforces this.
+ *
+ * Pass `{ uniqueTenant: true }` for singleton-per-tenant collections (e.g.
+ * Settings) so the auto-added tenantId index is unique rather than non-unique.
  */
 
 declare module 'mongoose' {
@@ -23,15 +26,34 @@ declare module 'mongoose' {
   }
 }
 
-export function tenantScopePlugin(schema: Schema): void {
-  schema.add({
-    tenantId: {
-      type: Schema.Types.ObjectId,
-      ref: 'Tenant',
-      required: true,
-      index: true,
-    },
-  });
+export type TenantScopePluginOptions = {
+  /**
+   * If true, the auto-added `tenantId` index is unique. Use for tenant-singleton
+   * collections (Settings) where exactly one doc per tenant is required.
+   * Default: false (non-unique).
+   */
+  uniqueTenant?: boolean;
+};
+
+export function tenantScopePlugin(schema: Schema, options: TenantScopePluginOptions = {}): void {
+  // Build the tenantId field descriptor conditionally.
+  // When uniqueTenant is true we set ONLY `unique: true` — omitting `index`
+  // entirely — because Mongoose rejects the combination of `index: false` +
+  // `unique: true` (a unique constraint already implies an index). When
+  // uniqueTenant is false (the default) we set ONLY `index: true` and leave
+  // `unique` absent, avoiding a second schema-level index declaration that
+  // would trigger the "Duplicate schema index" warning.
+  const tenantIdField: Record<string, unknown> = {
+    type: Schema.Types.ObjectId,
+    ref: 'Tenant',
+    required: true,
+  };
+  if (options.uniqueTenant) {
+    tenantIdField.unique = true;
+  } else {
+    tenantIdField.index = true;
+  }
+  schema.add({ tenantId: tenantIdField });
 
   // Tag the schema so the CI invariant test can verify plugin application.
   // Using Object.defineProperty + symbol so it isn't enumerated by anything.

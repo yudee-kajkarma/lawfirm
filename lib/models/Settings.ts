@@ -47,8 +47,12 @@ const SettingsSchema = new Schema(
 );
 
 // tenantScopePlugin FIRST — adds tenantId field before audit hooks reference it.
+// uniqueTenant: true makes the plugin emit a *unique* index instead of a plain
+// non-unique one. We don't also call SettingsSchema.index({ tenantId: 1 })
+// because Mongoose would see two schema-level declarations for the same key and
+// emit a "Duplicate schema index" warning. One unique index is enough.
 // Intentionally no softDeletePlugin — the singleton can't be deleted.
-SettingsSchema.plugin(tenantScopePlugin);
+SettingsSchema.plugin(tenantScopePlugin, { uniqueTenant: true });
 SettingsSchema.plugin(auditFieldsPlugin);
 SettingsSchema.plugin(auditLogPlugin, {
   collectionName: 'settings',
@@ -56,9 +60,6 @@ SettingsSchema.plugin(auditLogPlugin, {
   // alongside the settings UI.
   excludePaths: ['integrations'],
 });
-
-// Exactly one Settings doc per tenant.
-SettingsSchema.index({ tenantId: 1 }, { unique: true });
 
 export type SettingsDoc = InferSchemaType<typeof SettingsSchema> & {
   _id: mongoose.Types.ObjectId;

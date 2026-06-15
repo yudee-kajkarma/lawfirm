@@ -7,6 +7,7 @@ import { AppShell } from '@/components/layout/AppShell';
 import { NoAccessLanding } from '@/components/layout/NoAccessLanding';
 import { connectDb } from '@/lib/db/connect';
 import { BusinessUnit } from '@/lib/models/BusinessUnit';
+import { Tenant } from '@/lib/models/Tenant';
 
 export const runtime = 'nodejs';
 
@@ -20,6 +21,19 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   if (!session.user.tenantId) redirect('/login');
 
   await connectDb();
+
+  // Tenant status kill-switch (server-side). If an operator just suspended
+  // this tenant, the next page navigation bounces to /suspended rather than
+  // letting the user load a dashboard whose API calls will all 403.
+  // `.select('status').lean()` keeps the fetch lightweight — one field, no
+  // Mongoose hydration, no full document in memory.
+  const tenantDoc = await Tenant.findById(session.user.tenantId)
+    .select('status')
+    .lean();
+  if (!tenantDoc || tenantDoc.status !== 'active') {
+    redirect('/suspended');
+  }
+
   const all = await BusinessUnit.find({
     tenantId: new mongoose.Types.ObjectId(session.user.tenantId),
     isActive: true,

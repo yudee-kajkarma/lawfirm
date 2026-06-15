@@ -43,7 +43,9 @@ export const GET = withOperatorAuth(async (req) => {
   const nextCursor = hasNext ? String(items[items.length - 1]!._id) : null;
 
   const tenantIds = items.map((t) => t._id);
-  // Cross-tenant aggregation is intentional — operator surface.
+  // Per-tenant user count across the list page is unavoidable cross-tenant —
+  // the operator console is the one place this is legitimate. tenantAggregate()
+  // would scope to a single tenant, which is the wrong primitive here.
   // eslint-disable-next-line no-restricted-syntax -- operator console, cross-tenant by design
   const userCounts = await User.aggregate([
     { $match: { tenantId: { $in: tenantIds }, deletedAt: null } },

@@ -3,15 +3,18 @@ import { Types, type Model, type PipelineStage } from 'mongoose';
 /**
  * Wrapper around `Model.aggregate()` that prepends
  *   { $match: { tenantId, deletedAt: null } }
- * to every pipeline. Use this instead of `Model.aggregate(...)` everywhere.
+ * to every pipeline. Use this instead of `Model.aggregate(...)` everywhere
+ * EXCEPT the three legitimate raw-aggregate sites:
  *
- * Aggregations bypass Mongoose middleware, which means `tenantScopePlugin`
- * cannot enforce tenant scoping on them. This helper is the single chokepoint
- * for aggregation; the `no-restricted-syntax` eslint rule in `eslint.config.mjs`
- * bans raw `.aggregate(` calls in app code.
+ *   1. This file (the helper IS the wrapped call).
+ *   2. `scripts/test-tenant-scope.ts` — uses raw aggregate to prove the leak
+ *      that justifies the helper's existence.
+ *   3. `app/api/operator/tenants/route.ts` — operator-surface user counts,
+ *      cross-tenant by design, per-line eslint-disable with rationale.
  *
- * Operator-console code that legitimately needs cross-tenant aggregation
- * disables the eslint rule on a per-line basis with a rationale comment.
+ * The eslint rule in `eslint.config.mjs` enforces this. New cross-tenant
+ * operator code should add a per-line `// eslint-disable-next-line ...`
+ * comment with `cross-tenant, intentional` in the rationale (greppable).
  */
 
 type TenantScopedUser = { tenantId: string };
