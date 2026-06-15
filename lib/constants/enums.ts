@@ -55,3 +55,12 @@ export type MessageDirection = (typeof MESSAGE_DIRECTIONS)[number];
 
 export const INVOICE_STATUSES = ['draft', 'sent', 'paid', 'overdue', 'void'] as const;
 export type InvoiceStatus = (typeof INVOICE_STATUSES)[number];
+
+export const OPERATOR_AUDIT_ACTIONS = [
+  'login',
+  'suspend_tenant',
+  'reactivate_tenant',
+  'schedule_purge',
+  'cancel_purge',
+] as const;
+export type OperatorAuditAction = (typeof OPERATOR_AUDIT_ACTIONS)[number];

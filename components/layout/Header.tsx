@@ -22,6 +22,8 @@ const PAGE_TITLES: Record<string, string> = {
   '/settings/business-units': 'Settings · Business units',
   '/settings/audit-log': 'Settings · Audit log',
   '/settings/integrations': 'Settings · Integrations',
+  '/admin/tenants': 'Tenants',
+  '/admin/audit': 'Operator Audit',
 };
 
 function titleFromPath(pathname: string): string {

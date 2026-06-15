@@ -17,6 +17,8 @@ const { auth } = NextAuth(authConfig);
 export default auth((req) => {
   const { pathname } = req.nextUrl;
   const isAuthed = !!req.auth;
+  const kind = req.auth?.user?.kind;
+  const isOperator = kind === 'operator';
   const isAdmin = req.auth?.user?.isAdmin === true;
 
   const isPublic =
@@ -33,9 +35,21 @@ export default auth((req) => {
 
   // Authed users have no business on the auth pages.
   if (isAuthed && (pathname === '/login' || pathname === '/signup')) {
+    const home = isOperator ? '/admin/tenants' : '/dashboard';
+    return NextResponse.redirect(new URL(home, req.url));
+  }
+
+  // Operators may ONLY use /admin/*. Anywhere else → /admin/tenants.
+  if (isOperator && !pathname.startsWith('/admin') && !isPublic) {
+    return NextResponse.redirect(new URL('/admin/tenants', req.url));
+  }
+
+  // /admin/* requires an operator. Tenant users get bounced to the dashboard.
+  if (pathname.startsWith('/admin') && !isOperator) {
     return NextResponse.redirect(new URL('/dashboard', req.url));
   }
 
+  // Tenant-admin-only settings gated by isAdmin (existing rule).
   if (isAuthed && pathname.startsWith('/settings') && !isAdmin) {
     return NextResponse.redirect(new URL('/dashboard', req.url));
   }

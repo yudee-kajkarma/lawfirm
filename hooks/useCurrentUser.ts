@@ -11,7 +11,8 @@ export function useCurrentUser() {
     (bu: string) => {
       if (!user) return false;
       if (user.isAdmin) return true;
-      return user.businessUnits.includes(bu);
+      // businessUnits is optional since operators don't carry BU claims.
+      return (user.businessUnits ?? []).includes(bu);
     },
     [user],
   );

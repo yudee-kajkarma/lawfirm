@@ -27,9 +27,14 @@ export default async function DashboardLayout({ children }: { children: ReactNod
     .sort({ order: 1 })
     .lean();
 
+  // Operators never reach this layout — the tenantId guard above redirects them.
+  // Null-coalesce here is defensive typing only.
+  const isAdmin = session.user.isAdmin ?? false;
+  const userBUs = session.user.businessUnits ?? [];
+
   // Strip ObjectIds so the props are serializable across the server→client boundary.
   const accessible = all
-    .filter((bu) => session.user.isAdmin || session.user.businessUnits.includes(bu.key))
+    .filter((bu) => isAdmin || userBUs.includes(bu.key))
     .map((bu) => ({
       key: bu.key,
       name: bu.name,
@@ -39,7 +44,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   // Non-admin with zero accessible BUs gets a dedicated landing page instead
   // of a broken-feeling shell. Happens when their BU was deactivated or their
   // BU list was emptied by an admin. They can still sign out from here.
-  if (!session.user.isAdmin && accessible.length === 0) {
+  if (!isAdmin && accessible.length === 0) {
     return <NoAccessLanding email={session.user.email ?? ''} />;
   }
 
@@ -49,7 +54,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
 
   return (
     <AppShell
-      isAdmin={session.user.isAdmin}
+      isAdmin={isAdmin}
       businessUnits={accessible}
       defaultBU={defaultBU}
     >

@@ -10,8 +10,14 @@ export type RequestUser = {
   businessUnits: string[];
 };
 
+export type RequestOperator = {
+  _id: string;
+  email: string;
+};
+
 export type RequestContext = {
   user: RequestUser | null;
+  operator?: RequestOperator | null;
   source: AuditSource;
   ip?: string;
   userAgent?: string;
