@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
+import { PurgeNowConfirmDialog } from '@/components/operator/PurgeNowConfirmDialog';
 import { SchedulePurgeConfirmDialog } from '@/components/operator/SchedulePurgeConfirmDialog';
 import { SuspendConfirmDialog } from '@/components/operator/SuspendConfirmDialog';
 import { Badge } from '@/components/ui/badge';
@@ -47,6 +48,7 @@ export function TenantDetailClient({ tenantId }: Props) {
 
   const [suspendOpen, setSuspendOpen] = useState(false);
   const [purgeOpen, setPurgeOpen] = useState(false);
+  const [purgeNowOpen, setPurgeNowOpen] = useState(false);
 
   if (query.isLoading) return <DetailSkeleton />;
 
@@ -152,24 +154,42 @@ export function TenantDetailClient({ tenantId }: Props) {
                   Purge scheduled for {formatDate(purgeScheduledAt.toISOString())}
                 </p>
               )}
-              {purgeIsFuture && (
+              {/* Cancel purge is always available while status is pending_purge */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCancelPurge}
+                disabled={cancelPurge.isPending}
+              >
+                {cancelPurge.isPending ? 'Cancelling…' : 'Cancel purge'}
+              </Button>
+              {/* Purge now is only available once the scheduled date has passed */}
+              {!purgeIsFuture && (
                 <Button
-                  variant="outline"
+                  variant="destructive"
                   size="sm"
-                  onClick={handleCancelPurge}
-                  disabled={cancelPurge.isPending}
+                  onClick={() => setPurgeNowOpen(true)}
                 >
-                  {cancelPurge.isPending ? 'Cancelling…' : 'Cancel purge'}
+                  Purge now
                 </Button>
               )}
             </>
           )}
 
           {status === 'purging' && (
-            <div className="flex items-center gap-2 rounded-md border border-violet-500/30 bg-violet-500/10 px-3 py-1.5 text-sm text-violet-700 dark:text-violet-300">
-              <AlertTriangle className="size-3.5" />
-              Purge in progress
-            </div>
+            <>
+              <div className="flex items-center gap-2 rounded-md border border-violet-500/30 bg-violet-500/10 px-3 py-1.5 text-sm text-violet-700 dark:text-violet-300">
+                <AlertTriangle className="size-3.5" />
+                Purge in progress
+              </div>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => setPurgeNowOpen(true)}
+              >
+                Resume purge
+              </Button>
+            </>
           )}
         </div>
       </div>
@@ -230,6 +250,14 @@ export function TenantDetailClient({ tenantId }: Props) {
         suspendedAt={tenant.suspendedAt}
         open={purgeOpen}
         onOpenChange={setPurgeOpen}
+      />
+      <PurgeNowConfirmDialog
+        tenantId={tenantId}
+        tenantSlug={tenant.slug}
+        tenantName={tenant.name}
+        isResume={status === 'purging'}
+        open={purgeNowOpen}
+        onOpenChange={setPurgeNowOpen}
       />
     </div>
   );

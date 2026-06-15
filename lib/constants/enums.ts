@@ -62,5 +62,6 @@ export const OPERATOR_AUDIT_ACTIONS = [
   'reactivate_tenant',
   'schedule_purge',
   'cancel_purge',
+  'purge_now',
 ] as const;
 export type OperatorAuditAction = (typeof OPERATOR_AUDIT_ACTIONS)[number];

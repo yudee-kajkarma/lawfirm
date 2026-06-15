@@ -1,6 +1,6 @@
 'use client';
 
-import { Building2, ScrollText, type LucideIcon } from 'lucide-react';
+import { Building2, FileCheck2, ScrollText, type LucideIcon } from 'lucide-react';
 import { motion } from 'motion/react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -11,6 +11,7 @@ type NavItem = { href: string; label: string; icon: LucideIcon };
 
 const NAV_ITEMS: NavItem[] = [
   { href: '/admin/tenants', label: 'Tenants', icon: Building2 },
+  { href: '/admin/purge-reports', label: 'Purge Reports', icon: FileCheck2 },
   { href: '/admin/audit', label: 'Audit', icon: ScrollText },
 ];
 

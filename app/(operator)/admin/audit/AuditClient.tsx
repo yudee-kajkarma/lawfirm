@@ -36,6 +36,7 @@ const ACTION_LABEL: Record<OperatorAuditAction, string> = {
   reactivate_tenant: 'Reactivate tenant',
   schedule_purge: 'Schedule purge',
   cancel_purge: 'Cancel purge',
+  purge_now: 'Purge now',
 };
 
 // Colour tokens that match semantic meaning of each action.
@@ -46,6 +47,7 @@ const ACTION_BADGE: Record<OperatorAuditAction, string> = {
     'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
   schedule_purge: 'border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-300',
   cancel_purge: 'border-violet-500/40 bg-violet-500/10 text-violet-700 dark:text-violet-300',
+  purge_now: 'border-red-700/40 bg-red-700/10 text-red-800 dark:text-red-300',
 };
 
 function formatTimestamp(iso: string): string {

@@ -107,3 +107,20 @@ export function useCancelPurge() {
     },
   });
 }
+
+export function usePurgeNow() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (tenantId: string) => {
+      const res = await fetch(`/api/operator/tenants/${tenantId}/purge-now`, { method: 'POST' });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error?.message ?? 'Purge failed');
+      }
+      const data = await res.json();
+      await qc.invalidateQueries({ queryKey: ['operatorTenants'], refetchType: 'all' });
+      await qc.invalidateQueries({ queryKey: ['purgeReports'], refetchType: 'all' });
+      return data.data as { reportId: string };
+    },
+  });
+}

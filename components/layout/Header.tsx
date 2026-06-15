@@ -23,6 +23,7 @@ const PAGE_TITLES: Record<string, string> = {
   '/settings/audit-log': 'Settings · Audit log',
   '/settings/integrations': 'Settings · Integrations',
   '/admin/tenants': 'Tenants',
+  '/admin/purge-reports': 'Purge reports',
   '/admin/audit': 'Operator Audit',
 };
 

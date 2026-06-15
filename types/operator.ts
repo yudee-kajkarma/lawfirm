@@ -54,3 +54,23 @@ export type OperatorAuditEntry = {
   userAgent: string | null;
   createdAt: string;
 };
+
+export type PurgeReportListItem = {
+  _id: string;
+  tenantId: string;
+  tenantSlug: string;
+  tenantName: string;
+  purgedAt: string;
+  purgedByOperatorEmail: string | null;
+  triggeredBy: 'cron' | 'operator';
+  createdAt: string;
+};
+
+export type PurgeReportDetail = PurgeReportListItem & {
+  purgedByOperatorId: string | null;
+  initialDeletes: Record<string, number>;
+  verification: Record<string, number>;
+  hmac: string;
+  hmacAlgorithm: string;
+  hmacValid: boolean;
+};

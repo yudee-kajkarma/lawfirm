@@ -18,6 +18,7 @@
     "test:multitenancy": "tsx scripts/test-multitenancy-invariants.ts",
     "test:tenant-signup": "tsx --env-file=.env.local scripts/test-tenant-signup.ts",
     "test:operator-flow": "tsx --env-file=.env.local scripts/test-operator-flow.ts",
+    "test:purge": "tsx --env-file=.env.local scripts/test-purge.ts",
     "seed": "tsx --env-file=.env.local scripts/seed.ts",
     "seed:reset": "tsx --env-file=.env.local scripts/seed.ts --reset",
     "seed:operator": "tsx --env-file=.env.local scripts/seed-operator.ts"
