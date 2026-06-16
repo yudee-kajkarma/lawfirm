@@ -2,7 +2,8 @@
 
 import { motion } from 'motion/react';
 import Link from 'next/link';
-import { useFormStatus } from 'react-dom';
+import { signIn } from 'next-auth/react';
+import { useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -16,19 +17,64 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
+import type { SignupResult } from './page';
+
+type ErrorKey = 'EmailTaken' | 'Validation' | 'RateLimited' | 'Server' | 'SignIn';
+
 type Props = {
-  action: (formData: FormData) => Promise<void>;
-  error: string | null;
+  action: (formData: FormData) => Promise<SignupResult>;
 };
 
-const ERROR_MESSAGES: Record<string, string> = {
+const ERROR_MESSAGES: Record<ErrorKey, string> = {
   EmailTaken: 'That email is already in use.',
   Validation: 'Please check your details and try again.',
   RateLimited: 'Too many signup attempts. Try again later.',
   Server: 'Something went wrong. Please try again.',
+  SignIn: 'Workspace created, but auto sign-in failed. Try signing in.',
 };
 
-export function SignupForm({ action, error }: Props) {
+export function SignupForm({ action }: Props) {
+  const [error, setError] = useState<ErrorKey | null>(null);
+  // Plain useState rather than useTransition: window.location.href doesn't
+  // unmount React immediately, so the button would briefly re-enable between
+  // signIn resolving and the actual navigation. We keep pending true through
+  // success and only reset on error.
+  const [pending, setPending] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+
+    setPending(true);
+    setError(null);
+    const result = await action(fd);
+    if (!result.ok) {
+      setError(result.error);
+      setPending(false);
+      return;
+    }
+    // Auto sign-in with the just-created credentials, then hard-navigate
+    // so the root layout re-executes with the new session cookie.
+    // next-auth v5 (beta) is inconsistent about whether bad credentials
+    // throw or resolve to { ok: false } — handle both.
+    try {
+      const signed = await signIn('credentials', {
+        email: result.email,
+        password: result.password,
+        redirect: false,
+      });
+      if (signed && signed.ok && !signed.error) {
+        window.location.href = '/dashboard';
+        // Intentionally do not setPending(false) — the page is about to unload.
+        return;
+      }
+      setError('SignIn');
+    } catch {
+      setError('SignIn');
+    }
+    setPending(false);
+  }
+
   return (
     <main className="flex min-h-screen items-center justify-center bg-gradient-to-b from-background to-secondary/40 p-4">
       <motion.div
@@ -53,7 +99,7 @@ export function SignupForm({ action, error }: Props) {
             <CardDescription>One firm, one workspace. Set up takes 30 seconds.</CardDescription>
           </CardHeader>
           <CardContent>
-            {error && ERROR_MESSAGES[error] && (
+            {error && (
               <motion.div
                 initial={{ opacity: 0, y: -4 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -62,7 +108,7 @@ export function SignupForm({ action, error }: Props) {
                 {ERROR_MESSAGES[error]}
               </motion.div>
             )}
-            <form action={action} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-1.5">
                 <Label htmlFor="companyName">Firm name</Label>
                 <Input id="companyName" name="companyName" required autoFocus placeholder="Smith &amp; Co." />
@@ -87,7 +133,9 @@ export function SignupForm({ action, error }: Props) {
                   placeholder="At least 8 characters"
                 />
               </div>
-              <SubmitButton />
+              <Button type="submit" className="w-full" disabled={pending}>
+                {pending ? 'Creating workspace…' : 'Create workspace'}
+              </Button>
             </form>
           </CardContent>
           <CardFooter className="flex justify-center border-t bg-muted/30 py-3 text-xs text-muted-foreground">
@@ -99,14 +147,5 @@ export function SignupForm({ action, error }: Props) {
         </Card>
       </motion.div>
     </main>
-  );
-}
-
-function SubmitButton() {
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" className="w-full" disabled={pending}>
-      {pending ? 'Creating workspace…' : 'Create workspace'}
-    </Button>
   );
 }

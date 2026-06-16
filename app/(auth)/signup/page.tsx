@@ -1,8 +1,5 @@
-import { AuthError } from 'next-auth';
 import { headers } from 'next/headers';
-import { redirect } from 'next/navigation';
 
-import { signIn } from '@/auth';
 import { ConflictError } from '@/lib/utils/errors';
 import { performTenantSignup } from '@/lib/services/tenantSignup';
 import { checkRateLimit } from '@/lib/utils/rateLimit';
@@ -10,15 +7,12 @@ import { tenantSignupSchema } from '@/lib/utils/validators/tenant';
 
 import { SignupForm } from './SignupForm';
 
-type Props = {
-  searchParams: Promise<{ error?: string }>;
-};
+export type SignupResult =
+  | { ok: true; email: string; password: string }
+  | { ok: false; error: 'RateLimited' | 'Validation' | 'EmailTaken' | 'Server' };
 
-export default async function SignupPage({ searchParams }: Props) {
-  const params = await searchParams;
-  const error = params.error;
-
-  async function signupAction(formData: FormData) {
+export default function SignupPage() {
+  async function signupAction(formData: FormData): Promise<SignupResult> {
     'use server';
 
     const headersList = await headers();
@@ -27,9 +21,8 @@ export default async function SignupPage({ searchParams }: Props) {
       headersList.get('x-real-ip') ??
       null;
 
-    // 10 signups per IP per hour. Plenty for honest users; cuts off bots.
     if (!checkRateLimit('signup', ip, { capacity: 10, windowMs: 60 * 60_000 })) {
-      redirect('/signup?error=RateLimited');
+      return { ok: false, error: 'RateLimited' };
     }
 
     const parsed = tenantSignupSchema.safeParse({
@@ -39,32 +32,25 @@ export default async function SignupPage({ searchParams }: Props) {
       password: formData.get('password'),
     });
     if (!parsed.success) {
-      redirect('/signup?error=Validation');
+      return { ok: false, error: 'Validation' };
     }
 
     try {
       await performTenantSignup(parsed.data);
     } catch (err) {
       if (err instanceof ConflictError) {
-        redirect('/signup?error=EmailTaken');
+        return { ok: false, error: 'EmailTaken' };
       }
       console.error('[signup] unexpected error', err);
-      redirect('/signup?error=Server');
+      return { ok: false, error: 'Server' };
     }
 
-    try {
-      await signIn('credentials', {
-        email: parsed.data.ownerEmail,
-        password: parsed.data.password,
-        redirectTo: '/dashboard',
-      });
-    } catch (e) {
-      if (e instanceof AuthError) {
-        redirect('/login?error=Credentials');
-      }
-      throw e;
-    }
+    // Return creds so the client can call signIn() and then hard-navigate —
+    // a server-action signIn here would reuse the root layout's stale
+    // SessionProvider and the dashboard would render without a UserMenu
+    // until the user refreshed.
+    return { ok: true, email: parsed.data.ownerEmail, password: parsed.data.password };
   }
 
-  return <SignupForm action={signupAction} error={error ?? null} />;
+  return <SignupForm action={signupAction} />;
 }

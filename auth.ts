@@ -1,4 +1,4 @@
-import NextAuth from 'next-auth';
+import NextAuth, { CredentialsSignin } from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import { z } from 'zod';
 
@@ -13,6 +13,16 @@ const credentialsSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
 });
+
+/**
+ * Thrown when an otherwise-valid login (email + password match) is refused
+ * because the user's tenant isn't active. The `code` flows through to the
+ * client's signIn result so the login form can route to /suspended instead
+ * of showing the generic "invalid credentials" banner.
+ */
+class TenantSuspendedSignin extends CredentialsSignin {
+  code = 'TenantSuspended';
+}
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   ...authConfig,
@@ -50,8 +60,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           // Spec §5.2: refuse sign-in if tenant is anything other than active.
           // suspended → "Your firm's account is suspended"; pending_purge / purging
           // → same message (operator console can show finer grain later).
+          // Throw a distinguishable error so the login form can route to
+          // /suspended instead of showing the generic "invalid credentials".
           const tenantDoc = await Tenant.findById(userDoc.tenantId).lean();
-          if (!tenantDoc || tenantDoc.status !== 'active') return null;
+          if (!tenantDoc || tenantDoc.status !== 'active') {
+            throw new TenantSuspendedSignin();
+          }
 
           // Bump last-login. Use updateOne (not .save()) so we skip both
           // audit-log entries and the audit-fields `updatedBy` hook — this isn't
