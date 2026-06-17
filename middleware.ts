@@ -27,6 +27,19 @@ export default auth((req) => {
     pathname === '/signup' ||
     pathname === '/suspended';
 
+  // A signature-valid JWT from before MT-1 has no `tenantId`. Without this
+  // guard the dashboard layout would redirect to /login, the middleware would
+  // see the still-valid cookie and bounce back to /dashboard → ERR_TOO_MANY_REDIRECTS.
+  // Clear the cookie at the edge so the next request is genuinely unauthed.
+  const isStaleTenantUser = isAuthed && kind === 'tenant_user' && !req.auth?.user?.tenantId;
+  if (isStaleTenantUser) {
+    const res = NextResponse.redirect(new URL('/login', req.url));
+    // Auth.js v5 uses `__Secure-` prefix on HTTPS, no prefix on HTTP. Delete both.
+    res.cookies.delete('authjs.session-token');
+    res.cookies.delete('__Secure-authjs.session-token');
+    return res;
+  }
+
   if (!isAuthed && !isPublic) {
     const url = new URL('/login', req.url);
     url.searchParams.set('callbackUrl', pathname);
